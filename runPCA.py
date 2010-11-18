@@ -27,4 +27,5 @@ for i, sub in enumerate(subjects):
     idx0=idx1
 pylab.xlabel('PC1')
 pylab.ylabel('PC2')
+pylab.legend([l.split('.')[0] for l in  sys.argv[1:]])
 pylab.show()
