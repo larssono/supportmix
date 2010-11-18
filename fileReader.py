@@ -72,12 +72,26 @@ def findCommonRow(lineLabels):
             return label
     return ''
 
-ALLELES={0:'A', 1:'T', 2:'G', 3:'C'}
+
 def __findAlleles(snps):
     """Given list of nucleotides returns most common and least common"""
-    alleleFreq=[snps.count(nucl) for nucl in ['A','T','G','C']]
+    alleles = list(set(snps))
+    alleleFreq=[snps.count(nucl) for nucl in alleles]
     idx=np.argsort(alleleFreq)
-    return ALLELES[idx[-2]], ALLELES[idx[-1]]
+    if len(idx)>2:
+        print "There are more than two alleles in the input files: %s" %','.join(alleles)
+    elif len(idx)<2:
+        return alleles[idx], 'Q'
+    return alleles[idx[-2]], alleles[idx[-1]]
+
+# ALLELES={0:'A', 1:'T', 2:'G', 3:'C'}
+# def __findAlleles(snps):
+#     """Given list of nucleotides returns most common and least common"""
+#     alleleFreq=[snps.count(nucl) for nucl in ['A','T','G','C']]
+#     idx=np.argsort(alleleFreq)
+#     return ALLELES[idx[-2]], ALLELES[idx[-1]]
+
+ 
 
 def nucleotides2Haplotypes(snps):
     """Given a list of nucleotide labels returns -1, 1
