@@ -2,11 +2,11 @@ import sys, numpy as np, scipy.stats as stats
 sys.path.append('../')
 import fileReader
 
-POP_FILES=['../data_hapmap3/hapmap3_r2_b36_fwd.consensus.qc.poly.chr22_ceu.phased.gz',
-           '../data_hapmap3/hapmap3_r2_b36_fwd.consensus.qc.poly.chr22_yri.phased.gz']#,
-           #'../data_hapmap3/hapmap3_r2_b36_fwd.consensus.qc.poly.chr22_chd.unr.phased.gz']
-
-F_GM='genetic_map_chr22_b36.txt'
+CHR='chr22'
+DATA_DIR='../../../human_genome_data/'
+POP_FILES=[DATA_DIR+'data_hapmap3/hapmap3_r2_b36_fwd.consensus.qc.poly.%s_ceu.phased.gz'%CHR,
+           DATA_DIR+'data_hapmap3/hapmap3_r2_b36_fwd.consensus.qc.poly.%s_yri.phased.gz'%CHR]
+F_GM=DATA_DIR+'genetic_map_%s_b36.txt'%CHR
 BETA_ALPHA=12
 BETA_BETA=3
 NOFFSPRING=6
@@ -23,8 +23,8 @@ def poissonMating(pop1, pop2, snpPos, nGens=1, percentPop1=0.2):
     dM=np.diff(map[:,2])/100*nGens  #morgans x  generations
     
     for i in range(nOffspring):
-        #alpha=percentPop1
-        alpha=stats.beta.rvs(BETA_BETA,BETA_ALPHA)  #Determine percentage of POP1 
+        alpha=percentPop1
+        #alpha=stats.beta.rvs(BETA_BETA,BETA_ALPHA)  #Determine percentage of POP1 
         recombPos=map[dM>np.random.uniform(size=len(map)-1), 0] #Determine bp positions of recomb.
         j=0
         for pos in recombPos:  #Step through locations where switch happens
@@ -58,31 +58,36 @@ def saveHaplotypes(filename, subjectNames, snpNames, snpPos, snpVals):
             fp.write(str(val)+'\t')
         fp.write('\n')
     fp.close()
-            
-if __name__ == '__main__':
-    files=fileReader.concurrentFileReader(POP_FILES[0], POP_FILES[1])
+
+def readFiles(files):
+    nFiles=len(files)
+    files=fileReader.concurrentFileReader(*files)
     subjects=files.next()
-    snpNames=[]; snpPos=[];  pop1=[];  pop2=[]
+    snpNames=[]; snpPos=[];  pops=[[] for i in range(nFiles)]
     for l in files:
         snpNames.append(l[0])
         snpPos.append(int(l[1]))
-        pop1.append(l[2][0])
-        pop2.append(l[2][1])
+        for i in range(nFiles):
+            pops[i].append(l[2][i])
     nSNPs=len(snpNames)
-    pop1=np.asarray(pop1)
-    pop2=np.asarray(pop2)
-    nSNPs, nPop1 = pop1.shape
-    nSNPs, nPop2 = pop2.shape
+    pops=map(np.asarray, pops)
+    nPops=[l.shape[1] for l in pops]
+    return pops,  nPops, subjects, nSNPs, snpPos, snpNames
+
+if __name__ == '__main__':
+    pops, nPops, subjects, nSNPs, snpPos, snpNames = readFiles(POP_FILES)
+    pop1, pop2=pops
+    nPop1, nPop2=nPops
     idxPop1=np.random.permutation(nPop1) #Pick mating pairs
     idxPop2=np.random.permutation(nPop2)
     admixedPop, admixedOrigin=poissonMating(pop1[:,idxPop1[:NOFFSPRING]],
                                             pop2[:,idxPop2[:NOFFSPRING]],
                                             snpPos, NGENS)
     #Save populations
-    saveHaplotypes('ancestral1.csv', subjects[0][idxPop1[NOFFSPRING:]], snpNames, 
+    saveHaplotypes('ancestral_ceu.%s.csv'%CHR, subjects[0][idxPop1[NOFFSPRING:]], snpNames, 
                    snpPos, pop1[:,idxPop1[NOFFSPRING:]])
-    saveHaplotypes('ancestral2.csv', subjects[1][idxPop2[NOFFSPRING:]], snpNames, 
+    saveHaplotypes('ancestral_yri.%s.csv'%CHR, subjects[1][idxPop2[NOFFSPRING:]], snpNames, 
                    snpPos,pop2[:,idxPop2[NOFFSPRING:]])
-    saveHaplotypes('admixed.csv', ['ind']*NOFFSPRING, snpNames, snpPos, admixedPop)
-    saveHaplotypes('admixed_origin.csv', ['ind']*NOFFSPRING, snpNames, snpPos, admixedOrigin)
+    saveHaplotypes('admixed_ceu_yri.%s.csv'%CHR, ['ind']*NOFFSPRING, snpNames, snpPos, admixedPop)
+    saveHaplotypes('admixed_ceu_yri_origin.%s.csv'%CHR, ['ind']*NOFFSPRING, snpNames, snpPos, admixedOrigin)
 
