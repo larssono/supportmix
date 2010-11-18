@@ -34,8 +34,9 @@ class SVMpyml2(regionClassifier):
 
 
     def __call__(self, valsTrain, labelsTrain, valsTest, doAncestralCV=True):
-        """Does cv on ancestral population then trains on ancestral
-        population followed by testing on admixed population.
+        """Trains on ancestral population followed by testing on
+        admixed population.  Optionally does cross validation on
+        ancestral population.
         
         Arguments:
         - `valsTrain`: numpy array (nSamplesxnFeatures) of trainig samples 
@@ -66,8 +67,9 @@ class SVMpymvpa(regionClassifier):
 
 
     def __call__(self, valsTrain, labelsTrain, valsTest, doAncestralCV=True):
-        """Does cv on ancestral population then trains on ancestral
-        population followed by testing on admixed population.
+        """Trains on ancestral population followed by testing on
+        admixed population.  Optionally does cross validation on
+        ancestral population.
         
         Arguments:
         - `valsTrain`: numpy array (nSamplesxnFeatures) of trainig samples 
@@ -100,7 +102,6 @@ class SVMpymvpa(regionClassifier):
 #------------------------------------------------------------
 class globalFilter(object):
     """Given a region of classifiers filters based on some method"""
-
     def __init__(self):
         """abstract method"""
         abstract()
@@ -108,18 +109,20 @@ class globalFilter(object):
     def __call__(self):
         abstract()
         
-class hmmFilter2(globalFilter):
+class hmmFilter(globalFilter):
     """Uses hmm and transition probabilites to filter previously
     classified regions """
 
-    def __init__(self, geneticMapFile, nGens):
+    def __init__(self, geneticMapFile, nGens, nClasses):
         """Constructor
         Arguments:
         - `geneticMapFile`: file containing mapping from physical distance to genetic distance
         - `nGens`: number of generations since admixture
+        - `nClasses`: number of output classificiations
         """
         self.gm=geneticMap(geneticMapFile)
         self.nGens=nGens
+        self.nClasses=nClasses
 
     def __call__(self,snpLocations, successRate, admixedClass):
         """Filters transitions based on hmm model 
@@ -129,7 +132,7 @@ class hmmFilter2(globalFilter):
         - `admixedClass`: classification made
         """
         mapLocations=map(self.gm.pos2gm, snpLocations)
-        win_size=int(np.ceil(len(mapLocations)/float(admixedClass.shape[0]))) #TODO verify that this always works
+        win_size=int(np.ceil(len(mapLocations)/float(admixedClass.shape[0])))
         #determine transition matrices
         a=[]; b=[]
         oldPos=0
@@ -138,10 +141,19 @@ class hmmFilter2(globalFilter):
             dM=-(newPos - oldPos)/100*self.nGens
             e=np.exp(dM)  
             oldPos=newPos
-            a.append([[e, 1-e],[1-e, e]])#TODO this will not work for snps with three classes
-        a=np.asarray(a)
+            x=np.empty((self.nClasses, self.nClasses)) #Create state transitions
+            for j in range(self.nClasses):
+                x[j,:]=(1.-e)/(self.nClasses-1)
+                x[j,j]=e
+            a.append(x)
+
+        a=np.asarray(a) 
         for s in successRate:
-            b.append([[s, 1-s],[1-s, s]])#TODO this will not work for snps with three classes
+            x=np.empty((self.nClasses, self.nClasses)) #Create output transitions
+            for i in range(self.nClasses):
+                x[i,:]=(1.-s)/(self.nClasses-1)
+                x[i,i]=s
+            b.append(x)
         b=np.asarray(b)
         model=hmm(a, b)
 
@@ -153,56 +165,7 @@ class hmmFilter2(globalFilter):
             results.append(maxIdx)
         return np.array(results).T
 
-class hmmFilter3(globalFilter):
-    """Uses hmm and transition probabilites to filter previously
-    classified regions """
-
-    def __init__(self, geneticMapFile, nGens):
-        """Constructor
-        Arguments:
-        - `geneticMapFile`: file containing mapping from physical distance to genetic distance
-        - `nGens`: number of generations since admixture
-        """
-        self.gm=geneticMap(geneticMapFile)
-        self.nGens=nGens
-
-    def __call__(self,snpLocations, successRate, admixedClass):
-        """Filters transitions based on hmm model 
-        Arguments:
-        - `snpLocations`: Locations of all the SNPs classified
-        - `successRate`:  Probabilities of succesfully classifying each snp
-        - `admixedClass`: classification made
-        """
-        mapLocations=map(self.gm.pos2gm, snpLocations)
-        win_size=int(np.ceil(len(mapLocations)/float(admixedClass.shape[0]))) #TODO verify that this always works
-        #determine transition matrices
-        a=[]; b=[]
-        oldPos=0
-        for i in range(0,len(mapLocations), win_size):
-            newPos=np.mean(mapLocations[i:i+win_size])
-            dM=-(newPos - oldPos)/100*self.nGens
-            e=np.exp(dM)  
-            oldPos=newPos
-            a.append([[e, (1-e)/2, (1-e)/2],
-                      [(1-e)/2, e, (1-e)/2],
-                      [(1-e)/2, (1-e)/2, e]])
-        a=np.asarray(a)
-        for s in successRate:
-            b.append([[s,       (1-s)/2, (1-s)/2],
-                      [(1-s)/2, s,       (1-s)/2],
-                      [(1-s)/2, (1-s)/2, s]])#TODO this will not work for snps with three classes
-        b=np.asarray(b)
-        model=hmm(a, b)
-
-        #Go through and calculate hmm values
-        results=[]
-        for i in range(admixedClass.shape[1]):
-            model.forward_backward(admixedClass[:,i])
-            maxIdx=model.pstate.argsort(1)[:,-1]
-            results.append(maxIdx)
-        return np.array(results).T
         
-
 #--------------------------Helper functions--------------------------------------
 def abstract():
     import inspect
@@ -234,3 +197,12 @@ class geneticMap(object):
                 return m[-1,1]
             else:
                 raise IndexError
+
+
+if __name__ == '__main__':
+    hm=hmmFilter('../../human_genome_data/data_hapmap3/genetic_map_chr22_b36.txt', 10, 3)
+    snpLocations=[14431347,16211813,16989647,17960185,19135369,20429295,21053116,21773909,22522081,23704434,24530858,25026783,25592569,25979024,26384814,27576605,28538608,29525941,30726524,31319141,31887585,32430944,32932547,33457979,33936496,34908093,35571213,36162392,37337120,38357467,39774632,40982261,41820819,42478803,43037663,43632337,44287817,45168693,45771245,46338815,46775561,47215631,47719425,48069691,48554269]
+    successRate=np.asarray([.3,]*len(snpLocations))
+    admixedClass=np.asarray([[0,]*20+[1,]*25]).T
+    x = hm(snpLocations, successRate, admixedClass)
+    print x
