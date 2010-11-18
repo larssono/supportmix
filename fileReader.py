@@ -10,12 +10,13 @@ def openfile(file):
         return open(file)
 
         
-def concurrentFileReader(*args):
-    """Given a list of files returns common lines one at a time as determined by first word.
+def concurrentFileReader(*args, **kwargs):
+    """Given a list of files returns common lines one at a time as determined by first word (or key word)
     
     First call returns the first line, i.e the column headers.
     Subsequent calls returns one line at a time where row headers are similar."""
     fps= map(openfile, args)  #open input files
+    key= kwargs.get('key', 0)
     #fps= map(open, args)  #open input files
     lineDeques=[]  #Create storage for read lines
     lineLabels=[]  #Create storage for labels in readLines
@@ -29,18 +30,18 @@ def concurrentFileReader(*args):
 
     try:
         while True:
-            multiReadLine(fps, lineDeques, lineLabels)
+            multiReadLine(fps, lineDeques, lineLabels, key)
             foundRow = findCommonRow(lineLabels)
             while foundRow=='':   #not found common row
-                multiReadLine(fps, lineDeques, lineLabels)
+                multiReadLine(fps, lineDeques, lineLabels, key)
                 foundRow = findCommonRow(lineLabels)
             out=[]
             for fileDict, fileDeque in zip(lineLabels, lineDeques):  #Output the common value
                 line = fileDeque.popleft()
-                del fileDict[line.split(None, 1)[0]]
-                while not line.startswith(foundRow):
+                del fileDict[line.split(None, key+1)[key]]
+                while line.split(None, key+1)[key] != foundRow:
                     line = fileDeque.popleft()
-                    del fileDict[line.split(None, 1)[0]]
+                    del fileDict[line.split(None, key+1)[key]]
                 out.append(line)
             out = [l.split() for l in out]     #Split line into parts
             snpNames=out[0][0]
@@ -51,7 +52,7 @@ def concurrentFileReader(*args):
         return
         
     
-def multiReadLine(fps, lineDeques, lineLabels):
+def multiReadLine(fps, lineDeques, lineLabels, key):
     """Reads one line from each file in fps and stores at end of each
     list stored in lineDeques.  Raises EOFError when one file reaches its end.
     """
@@ -60,12 +61,13 @@ def multiReadLine(fps, lineDeques, lineLabels):
         str=fp.readline()
         if str != '':
             lineDeques[i].append(str.strip())
-            lineLabels[i][str.split(None, 1)[0]] = 1
+            lineLabels[i][str.split(None, key+1)[key]] = 1
         else:
             nFilesAtEnd+=1
     if nFilesAtEnd==len(fps) or (np.array(map(len, lineDeques))==0).any():
         raise EOFError
-    
+
+
 def findCommonRow(lineLabels):
     for label in lineLabels[0]:
         if sum([label in otherLabels for otherLabels in lineLabels[1:]])==len(lineLabels)-1:
