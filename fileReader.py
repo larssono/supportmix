@@ -105,30 +105,6 @@ def nucleotides2SNPs(snps):
     return outSNPs
 
 
-# def findCommonIdx(snpNames1, snpNames2 ):
-#     """
-#     """
-#     commonSNPs=set(snpNames1).intersection(snpNames2)
-#     idx1=np.zeros(len(commonSNPs), np.int); idx2=np.zeros(len(commonSNPs), np.int)
-#     for i, snp in enumerate(commonSNPs):
-#         idx1[i] = np.nonzero(snpNames1==snp)[0]
-#         idx2[i] = np.nonzero(snpNames2==snp)[0]
-#     return idx1, idx2
-
-
-# def readHapMapFile(file):
-#     """Reads first and second column of file storing SNP names and position in bp
-#     Return: subjectList, snpNames, snpLocations, snps 
-#     """
-#     fp=gzip.open(file); 
-#     subjectList=np.asarray(fp.readline().strip().split()[2:], dtype=np.str_)
-#     snps = np.asarray([l.split() for l in fp], dtype=np.str_)
-#     snpNames=snps[:,0]
-#     snpLocations=snps[:,1].astype(int)
-#     snps=snps[:,2:]
-#     return subjectList, snpNames, snpLocations, snps 
-
-
 if __name__ == '__main__':
     f=concurrentFileReader('file1.gz', 'file2.gz', 'file3.gz')
     for l in f:
