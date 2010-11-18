@@ -63,7 +63,7 @@ class SVMpymvpa(regionClassifier):
         - `C`: Penalty term for missclassified samples in SVM
         """
         #self.classifier = pymvpa.kNN(k=1, dfx=pymvpa.one_minus_correlation, voting='majority')
-        self.classifier = pymvpa.LinearCSVMC(C=10)
+        self.classifier = pymvpa.LinearCSVMC(C=C)
 
 
     def __call__(self, valsTrain, labelsTrain, valsTest, doAncestralCV=True):
