@@ -1,28 +1,9 @@
 import gzip
 import numpy as np
 from collections import deque
-
-class snpData(object):
-    """Keeps track of SNP data for subjects or Haplotypes."""
-    
-    def __init__(self, ):
-        """
-        """
         
-def readHapMapFile(file):
-    """Reads first and second column of file storing SNP names and position in bp
-    Return: subjectList, snpNames, snpLocations, snps 
-    """
-    fp=gzip.open(file); 
-    subjectList=np.asarray(fp.readline().strip().split()[2:], dtype=np.str_)
-    snps = np.asarray([l.split() for l in fp], dtype=np.str_)
-    snpNames=snps[:,0]
-    snpLocations=snps[:,1].astype(int)
-    snps=snps[:,2:]
-    return subjectList, snpNames, snpLocations, snps 
-
 def concurrentFileReader(*args):
-    """Given a list of files returns common lines one at a time.
+    """Given a list of files returns common lines one at a time as determined by first word.
     
     First call returns the first line, i.e the column headers.
     Subsequent calls returns one line at a time where row headers are similar."""
@@ -46,23 +27,23 @@ def concurrentFileReader(*args):
                 multiReadLine(fps, lineDeques, lineLabels)
                 foundRow = findCommonRow(lineLabels)
             out=[]
-            for fileDeque in lineDeques:  #Output the common value
+            for fileDict, fileDeque in zip(lineLabels, lineDeques):  #Output the common value
                 line = fileDeque.popleft()
+                del fileDict[line.split(None, 1)[0]]
                 while not line.startswith(foundRow):
                     line = fileDeque.popleft()
+                    del fileDict[line.split(None, 1)[0]]
                 out.append(line)
-            print map(len, lineDeques),
             out = [l.split() for l in out]     #Split line into parts
-            snpNames=[l[0] for l in out]       #Extract row headers
-            snpLocations=[l[1] for l in out]
+            snpNames=out[0][0]
+            snpLocations=out[0][1]
             snps=[l[2:] for l in out]          #Extract values
             yield snpNames, snpLocations, snps 
     except EOFError:
-        print "eof reached"
         return
         
     
-def multiReadLine(fps, lineDeques):
+def multiReadLine(fps, lineDeques, lineLabels):
     """Reads one line from each file in fps and stores at end of each
     list stored in lineDeques.  Raises EOFError when one file reaches its end.
     """
@@ -71,63 +52,86 @@ def multiReadLine(fps, lineDeques):
         str=fp.readline()
         if str != '':
             lineDeques[i].append(str.strip())
+            lineLabels[i][str.split(None, 1)[0]] = 1
         else:
             nFilesAtEnd+=1
     if nFilesAtEnd==len(fps) or (np.array(map(len, lineDeques))==0).any():
         raise EOFError
     
-
-
-def findCommonRow(lineDeques):
-    for line in lineDeques[0]:
-        print len(lineDeques[0]),
-        try:
-            label = line.split(None, 1)[0]
-            found=1
-            for otherDeque in lineDeques[1:]:
-                for otherLine in otherDeque:
-                    if  label == otherLine.split(None, 1)[0]:
-                        found +=1
-                        break
-            if found==len(lineDeques):
-                return label
-        except IndexError:
-            return ''
+def findCommonRow(lineLabels):
+    for label in lineLabels[0]:
+        if sum([label in otherLabels for otherLabels in lineLabels[1:]])==len(lineLabels)-1:
+            return label
     return ''
 
-    
-def nucleotides2SNPs(snps):
-    """Recieves an array of nucleotiedes and converts to numpy array of 0,1"""
-    nSNPs, nSubj = snps.shape
-    out=np.zeros((nSNPs, nSubj), dtype=int)
-#     translation={'A':4,'C':3,'G':2, 'T':1}
-#     for i in range(nSNPs):
-#         for j in range(nSubj):
-#             out[i,j]=translation[snps[i,j]]
-#     return out
-    
-    for i, snp in enumerate(snps):
-        genotypes=list(set(snp))
-        if (snp==genotypes[0]).sum() >nSubj/2.:
-            majorAllele=genotypes[0]
-        else:
-            majorAllele=genotypes[1]            
-        out[i,:]=np.asarray(snp)==majorAllele
-    out[out==0] = -1    
-    return out
+ALLELES={0:'A', 1:'T', 2:'G', 3:'C'}
+def __findAlleles(snps):
+    """Given list of nucleotides returns most common and least common"""
+    alleleFreq=[snps.count(nucl) for nucl in ['A','T','G','C']]
+    idx=np.argsort(alleleFreq)
+    return ALLELES[idx[-2]], ALLELES[idx[-1]]
 
-def findCommonIdx(snpNames1, snpNames2 ):
+def nucleotides2Haplotypes(snps):
+    """Given a list of nucleotide labels returns -1, 1
+    encoding for major and minor allele.
+
+    params:
+       snps: list of characters, e.g. ['G', 'A', 'G', 'A', 'A', 'A']
+
+    return: numpy array of [-1,1]  e.g. [-1, 1,-1, 1, 1, 1]
     """
+    majorAllele,minorAllele=__findAlleles(snps)
+    #Filter and return
+    outSNPs=np.ones(len(snps), np.short)
+    for i in range(len(snps)):
+        outSNPs[i]=(snps[i]==majorAllele)*-2 + 1
+    return outSNPs
+
+def nucleotides2SNPs(snps):
+    """Given list nucleotide labels returns -1,0,1 using every two
+    nucleotides to encode -1 for minor allele homozygote, 0
+    heterozygote and 1 for major allele homozygote.
+
+    params:
+       snps: list of characters, e.g. ['G', 'A', 'G', 'A', 'A', 'A']
+
+    return: numpy array of [-1,0,1]  e.g. [0, 0 , 1]
     """
-    commonSNPs=set(snpNames1).intersection(snpNames2)
-    idx1=np.zeros(len(commonSNPs), np.int); idx2=np.zeros(len(commonSNPs), np.int)
-    for i, snp in enumerate(commonSNPs):
-        idx1[i] = np.nonzero(snpNames1==snp)[0]
-        idx2[i] = np.nonzero(snpNames2==snp)[0]
-    return idx1, idx2
+    majorAllele,minorAllele=__findAlleles(snps)
+    outSNPs=np.ones(len(snps)/2, np.short)
+    #Filter and return
+    for i in range(0,len(snps),2):
+        outSNPs[i/2]=(snps[i]==snps[i+1])*(-2*(snps[i]==majorAllele)+1)
+    return outSNPs
+
+
+# def findCommonIdx(snpNames1, snpNames2 ):
+#     """
+#     """
+#     commonSNPs=set(snpNames1).intersection(snpNames2)
+#     idx1=np.zeros(len(commonSNPs), np.int); idx2=np.zeros(len(commonSNPs), np.int)
+#     for i, snp in enumerate(commonSNPs):
+#         idx1[i] = np.nonzero(snpNames1==snp)[0]
+#         idx2[i] = np.nonzero(snpNames2==snp)[0]
+#     return idx1, idx2
+
+
+# def readHapMapFile(file):
+#     """Reads first and second column of file storing SNP names and position in bp
+#     Return: subjectList, snpNames, snpLocations, snps 
+#     """
+#     fp=gzip.open(file); 
+#     subjectList=np.asarray(fp.readline().strip().split()[2:], dtype=np.str_)
+#     snps = np.asarray([l.split() for l in fp], dtype=np.str_)
+#     snpNames=snps[:,0]
+#     snpLocations=snps[:,1].astype(int)
+#     snps=snps[:,2:]
+#     return subjectList, snpNames, snpLocations, snps 
 
 
 if __name__ == '__main__':
     f=concurrentFileReader('file1.gz', 'file2.gz', 'file3.gz')
     for l in f:
         print l
+
+
