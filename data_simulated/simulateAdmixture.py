@@ -2,24 +2,13 @@ import sys, numpy as np, scipy.stats as stats
 sys.path.append('../')
 import fileReader
 
-CHR='chr22'
-DATA_DIR='../../../human_genome_data/'
-POP_FILES=[DATA_DIR+'data_hapmap3/hapmap3_r2_b36_fwd.consensus.qc.poly.%s_ceu.phased.gz'%CHR,
-           DATA_DIR+'data_hapmap3/hapmap3_r2_b36_fwd.consensus.qc.poly.%s_yri.phased.gz'%CHR]
-F_GM=DATA_DIR+'genetic_map_%s_b36.txt'%CHR
-BETA_ALPHA=12
-BETA_BETA=3
-NOFFSPRING=6
-NGENS=8
-
-
-def poissonMating(pop1, pop2, snpPos, nGens=1, percentPop1=0.2):
+def poissonMating(pop1, pop2, snpPos, mapFile,  nGens=1, percentPop1=0.2):
     """Caries out mating in similar manner to Hapmix """
     nSNPs, nOffspring=pop1.shape
     outPop=np.empty_like(pop1)
     outPopOrig=np.empty(pop1.shape, dtype=np.byte)
     #Read map and calculate recombination distances
-    map=np.array([l.strip().split() for l in open(F_GM).readlines()[1:]], np.float)
+    map=np.array([l.strip().split() for l in open(mapFile).readlines()[1:]], np.float)
     dM=np.diff(map[:,2])/100*nGens  #morgans x  generations
     
     for i in range(nOffspring):
@@ -75,6 +64,16 @@ def readFiles(files):
     return pops,  nPops, subjects, nSNPs, snpPos, snpNames
 
 if __name__ == '__main__':
+    CHR='chr22'
+    DATA_DIR='../../../human_genome_data/'
+    POP_FILES=[DATA_DIR+'hapmap3/CEU/TRIOS/hapmap3_r2_b36_fwd.consensus.qc.poly.%s_ceu.phased.gz'%CHR,
+               DATA_DIR+'hapmap3/YRI/TRIOS/hapmap3_r2_b36_fwd.consensus.qc.poly.%s_yri.phased.gz'%CHR]
+    F_GM=DATA_DIR+'/hapmap2/genetic_map_%s_b36.txt'%CHR
+    BETA_ALPHA=12
+    BETA_BETA=3
+    NOFFSPRING=6
+    NGENS=8
+
     pops, nPops, subjects, nSNPs, snpPos, snpNames = readFiles(POP_FILES)
     pop1, pop2=pops
     nPop1, nPop2=nPops
@@ -82,7 +81,7 @@ if __name__ == '__main__':
     idxPop2=np.random.permutation(nPop2)
     admixedPop, admixedOrigin=poissonMating(pop1[:,idxPop1[:NOFFSPRING]],
                                             pop2[:,idxPop2[:NOFFSPRING]],
-                                            snpPos, NGENS)
+                                            snpPos, F_GM, NGENS)
     #Save populations
     saveHaplotypes('ancestral_ceu.%s.csv'%CHR, subjects[0][idxPop1[NOFFSPRING:]], snpNames, 
                    snpPos, pop1[:,idxPop1[NOFFSPRING:]])
