@@ -1,13 +1,21 @@
 import gzip
 import numpy as np
 from collections import deque
+
+def openfile(file):
+    """Returns a file object by opening either a gz or uncompressed file. """
+    if file.endswith('.gz'):
+        return gzip.open(file)
+    else:
+        return open(file)
+
         
 def concurrentFileReader(*args):
     """Given a list of files returns common lines one at a time as determined by first word.
     
     First call returns the first line, i.e the column headers.
     Subsequent calls returns one line at a time where row headers are similar."""
-    fps= map(gzip.open, args)  #open input files
+    fps= map(openfile, args)  #open input files
     #fps= map(open, args)  #open input files
     lineDeques=[]  #Create storage for read lines
     lineLabels=[]  #Create storage for labels in readLines
