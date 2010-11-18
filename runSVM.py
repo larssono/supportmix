@@ -1,15 +1,32 @@
 import PyML, pylab
+import fileReader, sys, gzip
 import numpy as np
-import fileReader
-import sys
 from  hmm import hmm
-import gzip
 
 WIN_SIZE=100
 SVM=PyML.SVM(C=10000, optimizer='mysmo')
 nGens=1
 DOSNPS=False
 
+DOTHREE=False
+GENETIC_MAP_FILE='data_simulated/genetic_map_chr22_b36.txt'
+
+ANC_1_FILE='data_simulated/ancestral1.csv'
+ANC_2_FILE='data_simulated/ancestral2.csv'
+#ANC_2_FILE='data_hapmap3/hapmap3_r2_b36_fwd.consensus.qc.poly.chr22_mkk.phased.gz'
+#ANC_2_FILE='data_hapmap3/hapmap3_r2_b36_fwd.consensus.qc.poly.chr22_lwk.unr.phased.gz'
+ADMIXED_FILE='data_simulated/admixed.csv'
+ADMIXED_CORRECT_FILE='data_simulated/admixed_origin.csv'
+
+# ANC_1_FILE='data_simulated/three/ancestral1.csv'
+# ANC_2_FILE='data_simulated/three/ancestral2.csv'
+# ANC_3_FILE='data_simulated/three/ancestral2.csv'
+# ADMIXED_FILE='data_simulated/three/admixed.csv'
+# ADMIXED_CORRECT_FILE='data_simulated/three/admixed_origin.csv'
+
+#------------------------------------------------------------
+# hmm stuff
+#------------------------------------------------------------
 class geneticMap(object):
     """keeps track of genetic Map locations and returns closests genetic map location 
     given a snp location. """
@@ -36,9 +53,10 @@ class geneticMap(object):
             else:
                 raise IndexError
 
-def runHMM(mapLocations, successRate, admixedClass):
+def runHMM(snpLocations, successRate, admixedClass):
     """Smoothes out admixedClass using HMM"""
-
+    gm=geneticMap(GENETIC_MAP_FILE)
+    mapLocations=map(gm.pos2gm, snpLocations)
     #determine transition matrices
     a=[]; b=[]
     oldPos=0
@@ -61,7 +79,9 @@ def runHMM(mapLocations, successRate, admixedClass):
         results.append(maxIdx)
     return np.array(results).T
 
-
+#------------------------------------------------------------
+# Classifier stuff
+#------------------------------------------------------------
 def createSVMData(vals, labels):
     """Given array and labels creates PyML with normalization and  Kernel"""
     dataPyML=PyML.VectorDataSet(vals, L=labels)
@@ -69,73 +89,81 @@ def createSVMData(vals, labels):
     dataPyML.attachKernel('polynomial', degree = 1)
     return dataPyML
 
-def stepSVM(valsTrain, labelsTrain, valsTest, labelsTest):
+def stepSVM(valsTrain, labelsTrain, valsTest):
     """Does cv on ancestral population then trains on ancestral
     population followed by testing on admixed population.
     """
     #test ancestral populations
+
+    if DOTHREE:
+        import PyML.classifiers
+        classifier=PyML.classifiers.multi.OneAgainstRest(SVM)
+    else:
+        classifier=SVM
     haplotypeData=createSVMData(valsTrain, labelsTrain)
-    results=SVM.cv(haplotypeData, 3);
+    results=classifier.cv(haplotypeData, 3);
     ancestralSuccess = results.getBalancedSuccessRate()
     #train on ancestral populations
-    SVM.train(haplotypeData);
+    classifier.train(haplotypeData);
     #classify admixed population
-    testData=createSVMData(valsTest, labelsTest)
-    admixedClass = [SVM.classify(testData,i)[0] for i in range(valsTest.shape[0])]
+    testData=createSVMData(valsTest,[1]*valsTest.shape[0])
+    admixedClass = [classifier.classify(testData,i)[0] for i in range(valsTest.shape[0])]
     return ancestralSuccess, admixedClass
-    
+
+def readCorrect():
+    """Read the file of correct classifications and returns
+    the classes or the genotyped class.
+
+    For the latter the conversions are made using the values in
+    adjacent columns and converting: 0,0->0, 0,1->1, 1,1->2, 1,2->3,
+    2,0->4, 2,2->5 etc."""
+    fileData=np.array([l.split()[2:] for l in fileReader.openfile(ADMIXED_CORRECT_FILE).readlines()[1:]], np.float)
+    #if DOSNPS:
+    #    nGroups=fileData.max()
+    # correct=fileReader.nucluotides2SNPs(correct) if DOSNPS else fileReader.nucluotides2Haplotypes(correct)
+    return fileData
+
 
 if __name__ == '__main__':
-    ceuFile='data_simulated/ancestral_ceu_chr22.csv.gz'
-    yriFile='data_simulated/ancestral_yri_chr22.csv.gz'
-    aswFile='data_simulated/admixed_asw_chr22_8gens.csv.gz'
-    aswCorrectFile='data_simulated/admixed_asw_chr22_8gens_origin.csv.gz'
-    #yriFile='data_hapmap3/hapmap3_r2_b36_fwd.consensus.qc.poly.chr22_mkk.phased.gz'
-    yriFile='data_hapmap3/hapmap3_r2_b36_fwd.consensus.qc.poly.chr22_lwk.unr.phased.gz'
-    gm=geneticMap('data_simulated/genetic_map_chr22_b36.txt')
-
-    #Set up storage variables
-    files=fileReader.concurrentFileReader(ceuFile, yriFile, aswFile)
-    subjects=files.next()
-    if DOSNPS:
-        nTrain, nTest=len(subjects[0])/2+len(subjects[1])/2, len(subjects[2])/2
-        labelsTrain,labelsTest =  ['ceu']*(len(subjects[0])/2) + ['yri']*(len(subjects[1])/2), ['yri']*(len(subjects[2])/2)
+    if DOTHREE:
+        files=fileReader.concurrentFileReader(ANC_1_FILE, ANC_2_FILE, ANC_3_FILE, ADMIXED_FILE)
     else:
-        nTrain, nTest=len(subjects[0])+len(subjects[1]), len(subjects[2])
-        labelsTrain,labelsTest =  ['ceu']*len(subjects[0]) + ['yri']*len(subjects[1]), ['yri']*len(subjects[2])
-    idxTrain, idxTest=range(nTrain), range(nTrain, nTrain+nTest)
-    snpLabels=[]        #stores snp labels from in files
+        files=fileReader.concurrentFileReader(ANC_1_FILE, ANC_2_FILE, ADMIXED_FILE)
+    subjects=files.next()
+    nTrain=np.sum(map(len, subjects[:-1]))  #Number of samples in training set
+    nTest=len(subjects[-1]);
+    labelsTrain =sum([[i]*len(sub) for i, sub in enumerate(subjects[:-1])],[])   #Arbitrary labels for ancestral populations
+    if DOSNPS:
+        nTrain/=2; nTest/=2
+        labelsTrain=labelsTrain[::2]
+
     snpLocations=[]     #stores physical location from files
     ancestralSuccess=[] #stores success of ancestral classification
     admixedClass=[]     #stores classification of test Subjects
-    mapLocations=[]
     vals=np.zeros((nTrain+nTest, WIN_SIZE))  #temporary storage of output
-
     while True: #for j in range(100): #To go through all positions in file
         for i, (snpName, snpLocation, snps) in enumerate(files):
-            snpLabels.append(snpName)
             snpLocations.append(float(snpLocation))
-            mapLocations.append(gm.pos2gm(snpLocations[-1]))
             vals[:,i] = fileReader.nucleotides2SNPs(sum(snps, [])) if DOSNPS else fileReader.nucleotides2Haplotypes(sum(snps, []))
             if i==vals.shape[1]-1:
                 break
-        ancestral, admixed=stepSVM(vals[idxTrain,:i], labelsTrain, 
-                                   vals[idxTest, :i], labelsTest)
+        ancestral, admixed=stepSVM(vals[:nTrain,:i], labelsTrain, vals[-nTest:, :i])
         ancestralSuccess.append(ancestral)
         admixedClass.append(admixed)
         if i<WIN_SIZE-1:
             break
     admixedClassPre=np.array(admixedClass)
-    admixedClass=runHMM(mapLocations, ancestralSuccess, admixedClassPre)
+    admixedClass=runHMM(snpLocations, ancestralSuccess, admixedClassPre)
 
     #Compare and find successRate
-    correct=np.array([l.split()[2:] for l in gzip.open(aswCorrectFile).readlines()[1:]], np.float)
+    correct=readCorrect()
     svmClass=np.repeat(admixedClassPre, WIN_SIZE, 0)
     hmmClass=np.repeat(admixedClass, WIN_SIZE, 0)
 
     svmSuccess=100-sum(abs(svmClass[:len(correct),:]-correct))/len(correct)*100
     hmmSuccess=100-sum(abs(hmmClass[:len(correct),:]-correct))/len(correct)*100
     print np.mean(svmSuccess),'+/-', np.std(svmSuccess), np.mean(hmmSuccess),'+/-',np.std(hmmSuccess)
+    print np.mean(svmSuccess),'+/-', np.std(svmSuccess)
 
     pylab.figure()
     pylab.clf()
@@ -147,17 +175,17 @@ if __name__ == '__main__':
 
 
     pylab.subplot(4,1,2);
-    pylab.imshow(admixedClassPre.T, interpolation='nearest')
+    pylab.imshow(admixedClassPre.T, interpolation='nearest', cmap=pylab.cm.copper, vmin=0, vmax=2)
     pylab.ylabel('Sample '); pylab.yticks([]); pylab.xticks([])
     pylab.axis('tight')
 
     pylab.subplot(4,1,3);
-    pylab.imshow(admixedClass.T, interpolation='nearest')
+    pylab.imshow(admixedClass.T, interpolation='nearest', cmap=pylab.cm.copper, vmin=0, vmax=2)
     pylab.ylabel('Sample ');pylab.yticks([]); pylab.xticks([])
     pylab.axis('tight')
 
     pylab.subplot(4,1,4);
-    pylab.imshow(correct[:, :].T, interpolation='nearest')
+    pylab.imshow(correct[:, :].T, interpolation='nearest', cmap=pylab.cm.copper, vmin=0, vmax=2)
     pylab.ylabel('Sample ');pylab.yticks([]); pylab.xticks([])
     pylab.xlabel('Position along Chromosome 22')
     pylab.axis('tight')

@@ -2,8 +2,10 @@ import sys, numpy as np, scipy.stats as stats
 sys.path.append('../')
 import fileReader
 
-POP1_FILE='../data_hapmap3/hapmap3_r2_b36_fwd.consensus.qc.poly.chr22_ceu.phased.gz'
-POP2_FILE='../data_hapmap3/hapmap3_r2_b36_fwd.consensus.qc.poly.chr22_yri.phased.gz'
+POP_FILES=['../data_hapmap3/hapmap3_r2_b36_fwd.consensus.qc.poly.chr22_ceu.phased.gz',
+           '../data_hapmap3/hapmap3_r2_b36_fwd.consensus.qc.poly.chr22_yri.phased.gz']#,
+           #'../data_hapmap3/hapmap3_r2_b36_fwd.consensus.qc.poly.chr22_chd.unr.phased.gz']
+
 F_GM='genetic_map_chr22_b36.txt'
 BETA_ALPHA=12
 BETA_BETA=3
@@ -58,7 +60,7 @@ def saveHaplotypes(filename, subjectNames, snpNames, snpPos, snpVals):
     fp.close()
             
 if __name__ == '__main__':
-    files=fileReader.concurrentFileReader(POP1_FILE, POP2_FILE)
+    files=fileReader.concurrentFileReader(POP_FILES[0], POP_FILES[1])
     subjects=files.next()
     snpNames=[]; snpPos=[];  pop1=[];  pop2=[]
     for l in files:
