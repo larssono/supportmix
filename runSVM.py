@@ -8,6 +8,7 @@ import gzip
 WIN_SIZE=100
 SVM=PyML.SVM(C=10000, optimizer='mysmo')
 nGens=1
+DOSNPS=False
 
 class geneticMap(object):
     """keeps track of genetic Map locations and returns closests genetic map location 
@@ -44,12 +45,12 @@ def runHMM(mapLocations, successRate, admixedClass):
     for i in range(0,len(mapLocations), WIN_SIZE):
         newPos=np.mean(mapLocations[i:i+WIN_SIZE])
         dM=-(newPos - oldPos)/100*nGens
-        e=np.exp(dM)
+        e=np.exp(dM)  #TODO this will not work for snps with three classes
         oldPos=newPos
-        a.append([[e, 1-e],[1-e, e]])
+        a.append([[e, 1-e],[1-e, e]])#TODO this will not work for snps with three classes
     a=np.asarray(a)
     for s in successRate:
-        b.append([[s, 1-s],[1-s, s]])
+        b.append([[s, 1-s],[1-s, s]])#TODO this will not work for snps with three classes
     b=np.asarray(b)
     model=hmm(a, b)
 
@@ -89,26 +90,19 @@ if __name__ == '__main__':
     yriFile='data_simulated/ancestral_yri_chr22.csv.gz'
     aswFile='data_simulated/admixed_asw_chr22_8gens.csv.gz'
     aswCorrectFile='data_simulated/admixed_asw_chr22_8gens_origin.csv.gz'
-    #mapping reference genome
-    ceuFile='data_hapmap3/hapmap3_r2_b36_fwd.consensus.qc.poly.chr1_ceu.phased.gz'
-    yriFile='data_hapmap3/hapmap3_r2_b36_fwd.consensus.qc.poly.chr1_yri.phased.gz'
-    aswFile='data_hg18/hg18_chr1_hapmapIII.txt.gz'
-    #read Genetic Map
-    gm=geneticMap('data_simulated/genetic_map_chr1_b36.txt')
-    #Cs=[]
-    #Cs_svmSuccessMEAN=[]
-    #Cs_svmSuccessSTD=[]
-    #Cs_hmmSuccessMEAN=[]
-    #Cs_hmmSuccessSTD=[]
-    
-    #for penalty in [1, 10, 100, 1000, 10000, 100000]:
-    #    SVM=PyML.SVM(C=penalty, optimizer='mysmo')
+    #yriFile='data_hapmap3/hapmap3_r2_b36_fwd.consensus.qc.poly.chr22_mkk.phased.gz'
+    yriFile='data_hapmap3/hapmap3_r2_b36_fwd.consensus.qc.poly.chr22_lwk.unr.phased.gz'
+    gm=geneticMap('data_simulated/genetic_map_chr22_b36.txt')
 
     #Set up storage variables
     files=fileReader.concurrentFileReader(ceuFile, yriFile, aswFile)
     subjects=files.next()
-    nTrain, nTest=len(subjects[0])+len(subjects[1]), len(subjects[2])  #Not Flexible
-    labelsTrain,labelsTest =  ['ceu']*len(subjects[0]) + ['yri']*len(subjects[1]), ['yri']*len(subjects[2])
+    if DOSNPS:
+        nTrain, nTest=len(subjects[0])/2+len(subjects[1])/2, len(subjects[2])/2
+        labelsTrain,labelsTest =  ['ceu']*(len(subjects[0])/2) + ['yri']*(len(subjects[1])/2), ['yri']*(len(subjects[2])/2)
+    else:
+        nTrain, nTest=len(subjects[0])+len(subjects[1]), len(subjects[2])
+        labelsTrain,labelsTest =  ['ceu']*len(subjects[0]) + ['yri']*len(subjects[1]), ['yri']*len(subjects[2])
     idxTrain, idxTest=range(nTrain), range(nTrain, nTrain+nTest)
     snpLabels=[]        #stores snp labels from in files
     snpLocations=[]     #stores physical location from files
@@ -118,12 +112,11 @@ if __name__ == '__main__':
     vals=np.zeros((nTrain+nTest, WIN_SIZE))  #temporary storage of output
 
     while True: #for j in range(100): #To go through all positions in file
-        for i, (snpName, snpLocation, snps) in enumerate(files):#range(WIN_SIZE):
+        for i, (snpName, snpLocation, snps) in enumerate(files):
             snpLabels.append(snpName)
             snpLocations.append(float(snpLocation))
             mapLocations.append(gm.pos2gm(snpLocations[-1]))
-            vals[:,i]=fileReader.nucleotides2Haplotypes(sum(snps, []))
-            #vals[:,i]=fileReader.nucleotides2SNPs(sum(snps, []))
+            vals[:,i] = fileReader.nucleotides2SNPs(sum(snps, [])) if DOSNPS else fileReader.nucleotides2Haplotypes(sum(snps, []))
             if i==vals.shape[1]-1:
                 break
         ancestral, admixed=stepSVM(vals[idxTrain,:i], labelsTrain, 
@@ -136,20 +129,13 @@ if __name__ == '__main__':
     admixedClass=runHMM(mapLocations, ancestralSuccess, admixedClassPre)
 
     #Compare and find successRate
-    #correct=np.array([l.split()[2:] for l in gzip.open(aswCorrectFile).readlines()[1:]], np.float)
+    correct=np.array([l.split()[2:] for l in gzip.open(aswCorrectFile).readlines()[1:]], np.float)
     svmClass=np.repeat(admixedClassPre, WIN_SIZE, 0)
     hmmClass=np.repeat(admixedClass, WIN_SIZE, 0)
 
-    #svmSuccess=100-sum(abs(svmClass[:len(correct),:]-correct))/len(correct)*100
-    #hmmSuccess=100-sum(abs(hmmClass[:len(correct),:]-correct))/len(correct)*100
-
-    #Visualize and collect output data
-    #Cs.append(penalty)
-    #Cs_svmSuccessMEAN.append(np.mean(svmSuccess))
-    #Cs_svmSuccessSTD.append(np.std(svmSuccess))
-    #Cs_hmmSuccessMEAN.append(np.mean(hmmSuccess))
-    #Cs_hmmSuccessSTD.append(np.std(hmmSuccess))
-    #print np.mean(svmSuccess), np.std(svmSuccess), np.mean(hmmSuccess), np.std(hmmSuccess)
+    svmSuccess=100-sum(abs(svmClass[:len(correct),:]-correct))/len(correct)*100
+    hmmSuccess=100-sum(abs(hmmClass[:len(correct),:]-correct))/len(correct)*100
+    print np.mean(svmSuccess),'+/-', np.std(svmSuccess), np.mean(hmmSuccess),'+/-',np.std(hmmSuccess)
 
     pylab.figure()
     pylab.clf()
@@ -170,20 +156,10 @@ if __name__ == '__main__':
     pylab.ylabel('Sample ');pylab.yticks([]); pylab.xticks([])
     pylab.axis('tight')
 
-    #pylab.subplot(4,1,4);
-    #pylab.imshow(correct[:, :].T, interpolation='nearest')
-    #pylab.ylabel('Sample ');pylab.yticks([]); pylab.xticks([])
-    #pylab.xlabel('Position along Chromosome 22')
-    #pylab.axis('tight')
-
-#     pylab.figure()
-#     h1,h2,h3= pylab.errorbar(Cs, Cs_svmSuccessMEAN,  Cs_svmSuccessSTD)
-#     h2,h3,h4=pylab.errorbar(Cs, Cs_hmmSuccessMEAN,  Cs_hmmSuccessSTD)
-#     pylab.ylim([90, 110])
-#     pylab.xlabel('Cs')
-#     pylab.ylabel('Success Rate')
-#     pylab.legend((h1, h2),['SVM', 'SVM and HMM'], 4)
-#     ax=pylab.gca()
-#     ax.set_xscale('log')
+    pylab.subplot(4,1,4);
+    pylab.imshow(correct[:, :].T, interpolation='nearest')
+    pylab.ylabel('Sample ');pylab.yticks([]); pylab.xticks([])
+    pylab.xlabel('Position along Chromosome 22')
+    pylab.axis('tight')
     pylab.show()
     
