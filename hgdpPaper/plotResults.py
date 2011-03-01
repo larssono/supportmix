@@ -3,6 +3,7 @@ import cPickle, pylab, numpy as np
 from mpl_toolkits.basemap import Basemap
 import string
 
+FILETYPE='eps'
 
 popLegend=['Palestinian','Bedouin','Druze','Makrani','Sindhi','Balochi','Brahui','Hazara','Pathan','Kalash','Burusho','Mozabite','Mandenka','Yoruba','Biaka Pygmies','Mbuti Pygmies',
 'Bantu N.E.','Bantu S.W. Ovambo','San','Bantu S.W. Herero','Bantu S.E. S.Sotho', 'Bantu S.E. Tswana','Bantu S.E. Zulu','Yakut',
@@ -29,12 +30,19 @@ if __name__ == '__main__':
     pca=np.load(OUTPUT_PCA)
     Vt=pca['Vt']; S=pca['S']; popLabels=pca['popLabels']; subjects=pca['subjects']
     colors=np.asarray([POPCOLORS[l] for l in popLabels ])/255.
-    pylab.scatter(-Vt[0,:], -Vt[1,:], s=15, c=colors, linewidths=0)
+    idxQatar1=(popLabels=='Qatar1')
+    idxQatar2=(popLabels=='Qatar2')
+    idxQatar3=(popLabels=='Qatar3')
+    idxNonQatar=np.logical_not(idxQatar1+idxQatar2+idxQatar3)
+    pylab.scatter(-Vt[0,idxNonQatar], -Vt[1,idxNonQatar], s=15, c=colors[idxNonQatar,:], linewidths=0)
+    pylab.scatter(-Vt[0,idxQatar1], -Vt[1, idxQatar1], s=15, c=colors[idxQatar1,:], linewidths=0, marker='s')  #Qatar 1
+    pylab.scatter(-Vt[0,idxQatar2], -Vt[1, idxQatar2], s=15, c=colors[idxQatar2,:], linewidths=0, marker='v')
+    pylab.scatter(-Vt[0,idxQatar3], -Vt[1, idxQatar3], s=15, c=colors[idxQatar3,:], linewidths=0, marker='d')
     pylab.xlabel('PC 1 (%0.2g%%)' %S[0])
     pylab.ylabel('PC 2 (%0.2g%%)' %S[1])
-    ax.annotate('1', xy=(-Vt[0,981], -Vt[1, 981] ),  xycoords='data', xytext=(-30, 10), textcoords='offset points',arrowprops=dict(facecolor='black', shrink=0.1, width=1, headwidth=4), horizontalalignment='center', verticalalignment='top' )
-    ax.annotate('2', xy=(-Vt[0,925], -Vt[1, 925] ),  xycoords='data', xytext=(-15, -20), textcoords='offset points',arrowprops=dict(facecolor='black', shrink=0.1, width=1, headwidth=4), horizontalalignment='center', verticalalignment='top' )
-    ax.annotate('3', xy=(-Vt[0,1029], -Vt[1, 1029] ),  xycoords='data', xytext=(-30, 10), textcoords='offset points',arrowprops=dict(facecolor='black', shrink=0.1, width=1, headwidth=4), horizontalalignment='center', verticalalignment='top' )
+    ax.annotate('a', xy=(-Vt[0,981], -Vt[1, 981] ),  xycoords='data', xytext=(-30, 10), textcoords='offset points',arrowprops=dict(facecolor='black', shrink=0.1, width=1, headwidth=4), horizontalalignment='center', verticalalignment='top' )
+    ax.annotate('b', xy=(-Vt[0,925], -Vt[1, 925] ),  xycoords='data', xytext=(-15, -20), textcoords='offset points',arrowprops=dict(facecolor='black', shrink=0.1, width=1, headwidth=4), horizontalalignment='center', verticalalignment='top' )
+    ax.annotate('c', xy=(-Vt[0,1029], -Vt[1, 1029] ),  xycoords='data', xytext=(-30, 10), textcoords='offset points',arrowprops=dict(facecolor='black', shrink=0.1, width=1, headwidth=4), horizontalalignment='center', verticalalignment='top' )
     ######### Map plot ################
     ax=pylab.axes([0.54, 0.51, 0.45, 0.45])
     map = Basemap(llcrnrlon=-180,llcrnrlat=-70,urcrnrlon=180,urcrnrlat=70, projection='merc',lat_ts=20, resolution = 'l',area_thresh = 100000. )
@@ -54,8 +62,8 @@ if __name__ == '__main__':
     pylab.scatter(xc,yc,s=40, zorder=10, c=colors, linewidth=0)
     xQatar, yQatar=map(51.53333, 25.28667)
     pylab.scatter(xQatar,yQatar,s=40, zorder=10, c=np.asarray([POPCOLORS['Qatar1']])/255., linewidth=0)
-    pylab.arrow(xQatar, yQatar, 3e6,-3e6, zorder=11)
-    pylab.text(xQatar+3e6, yQatar-3.1e6, 'Qatar', horizontalalignment='center', verticalalignment='top')
+    pylab.arrow(xQatar, yQatar, 3e6,-3e6, zorder=11, lw=.5)
+    pylab.text(xQatar+3e6, yQatar-3.1e6, 'Qatar', horizontalalignment='center', verticalalignment='top', fontsize=8)
     # for name,xpt,ypt in zip(pops,xc,yc):
     #     pylab.text(xpt+50000,ypt+50000,name,fontsize=9)
     pylab.axis([17e6, 30e6, 6.5e6, 20e6])
@@ -101,11 +109,13 @@ if __name__ == '__main__':
     ########## Arrows to sample individuals ######
     ax=pylab.axes([.08, .03, .91, .07])
     pylab.axis([0, 312, 0, -10]); pylab.axis('off')
-    for number, pos in [('1',100),('2',210),('3',284)]:
+    for number, pos in [('a',100),('b',210),('c',284)]:
         ax.annotate(number, xy=(pos, -9.5),  xycoords='data',
                     xytext=(pos, -5), textcoords='data',
                     arrowprops=dict(facecolor='black', shrink=0.1, width=1, headwidth=4),
-                    horizontalalignment='center', verticalalignment='top' )
+                    horizontalalignment='center', verticalalignment='top')
+
+    pylab.savefig('fig1.'+FILETYPE,format=FILETYPE) 
 
     # ################################
     # # Figure 2 - average ancestry
@@ -191,6 +201,7 @@ if __name__ == '__main__':
             percent=np.sum(q==popNumber, 0)/7.1
             tot+=percent
         print '%5s\t%0.2g+/-%0.2g\t %0.2g-%0.2g' %('S. African', np.mean(tot), np.std(tot), np.min(tot), np.max(tot))
+    pylab.savefig('fig2.'+FILETYPE,format=FILETYPE) 
 
 
     ################################
@@ -207,7 +218,7 @@ if __name__ == '__main__':
     pylab.plot(lamp.fst, np.asarray(lamp.success)[:,0], 'ro')
     for files in lamp.files:
         i=pylab.find([files==s for s in svm2.files])
-        pylab.scatter(fst[i], success[i], s=30, facecolors='none', edgecolors='r', linewidths=1.5, zorder=10)
+        pylab.scatter(fst[i], success[i], s=30, facecolors='none', edgecolors='r', linewidths=1, zorder=10)
     pylab.axis([0, 0.25, 50, 100])
     pylab.xlabel('Fst')
     pylab.ylabel('Correctly classified loci [%]')
@@ -242,6 +253,7 @@ if __name__ == '__main__':
     pylab.axis([9, 5050, 50, 100])
     pylab.legend(['-'.join(g.files[i]) for i in [0,8,16,24,32,40]], 4, ncol=2)
     pylab.subplots_adjust(left=.075, bottom=.08, right=.99, top=.97, hspace=.16, wspace=.1)
+    pylab.savefig('fig3.'+FILETYPE,format=FILETYPE) 
 
 
 
@@ -287,9 +299,7 @@ if __name__ == '__main__':
         pylab.axis('tight'); pylab.draw(); 
         pylab.xticks([]); pylab.yticks([])
         pylab.ylabel(CHR, rotation='horizontal')
-        # for i in np.unique(admClass):
-        #     if (admClass==i).sum()>156: 
-        #         print '%i%20s\t%20s\t%3.2g' % (i, pops[i], colors[i], (admClass==i).sum()/float(admClass.size)*100)
+    pylab.savefig('supplemental_fig1.'+FILETYPE,format=FILETYPE) 
 
 
     # ################################
@@ -319,6 +329,7 @@ if __name__ == '__main__':
     pylab.xlim(0.08, .52)
     pylab.subplots_adjust(left=.05, bottom=.15, right=.98, top=.95, hspace=.1)
     pylab.text(.47, 92, 'c')
+    pylab.savefig('supplemental_fig2.'+FILETYPE,format=FILETYPE) 
     ######### Effects of Phasing ###################
     # pylab.subplot(1,3,3)
     # width=.8/3
