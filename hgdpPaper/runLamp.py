@@ -1,0 +1,1 @@
+/home/lom/bin/runLamp.py

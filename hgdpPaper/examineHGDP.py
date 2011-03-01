@@ -1,59 +1,219 @@
-import glob, runSVM, numpy as np, fileReader, time
-NGENS=1
-NWIN=100
-ADMIXEDNAMES='data_simulated/hgdp/admixed_hgdp_%s_%s.chr1.csv.gz'
-CHROM=1
-C=1000
+import sys; sys.path.append('../')
+import re, os, glob, cPickle, runSVM, numpy as np, fileReader, time, runLamp
+from variables import *
 
-def success(originFile, admixedClassPre, admixedClass):
+
+def success(originFile, admixedClassPre, admixedClass, winSize=WINSIZE):
     correct=np.array([l.split()[2:] for l in fileReader.openfile(originFile).readlines()[1:]], np.float)
     #Compare and find successRate
-    svmClass=np.repeat(admixedClassPre, NWIN, 0)
-    hmmClass=np.repeat(admixedClass, NWIN, 0)
-    svmSuccess=100-sum(abs(svmClass[:len(correct),:]-correct))/len(correct)*100
-    hmmSuccess=100-sum(abs(hmmClass[:len(correct),:]-correct))/len(correct)*100
+    svmClass=np.repeat(admixedClassPre, winSize, 0)[:len(correct),:]
+    hmmClass=np.repeat(admixedClass, winSize, 0)[:len(correct),:]
+    svmSuccess=100*(svmClass==correct).sum(0)/float(len(correct))
+    hmmSuccess=100*(hmmClass==correct).sum(0)/float(len(correct))
     return np.mean(hmmSuccess), np.std(hmmSuccess), np.mean(svmSuccess), np.std(svmSuccess)
 
-summaryOutFile=open('summary_WIN%i_GENS%i_C%i.txt' %(NWIN, NGENS, C), 'w')
-summaryOutFile.write('pop1\tpop2\twin[bp]\twin[cm]\tsuccess[svm]\tstd[svm]\tsuccess[hmm]\tstd[hmm]\n')
+def readFst():
+    fst={}
+    fp=fileReader.openfile(FILEFST+'.gz')
+    for l in fp:
+        pop1, pop2, val=l.strip().split('\t') 
+        fst.setdefault(pop1, {})[pop2]=float(val)
+        fst.setdefault(pop2, {})[pop1]=float(val)
+    fp.close()
+    return fst
+    
 
-admixedFiles=glob.glob('data_simulated/hgdp/admixed_hgdp*')
-ancestralFiles=glob.glob('data_simulated/hgdp/ancestral_hgdp*')
-t0=time.time()
-for ancestral1 in ancestralFiles:
-    for ancestral2 in ancestralFiles:
-        pop1=ancestral1.replace('data_simulated/hgdp/ancestral_hgdp_', '').replace('.chr1.csv.gz', '')
-        pop2=ancestral2.replace('data_simulated/hgdp/ancestral_hgdp_', '').replace('.chr1.csv.gz', '')
-        admixedFile=ADMIXEDNAMES%(pop1, pop2)
-        if admixedFile in admixedFiles:
-            originFile=admixedFile.replace('_hgdp_', '_origin_hgdp_')
-            fileNames=[ancestral1, ancestral2, admixedFile]
-            outFile='tmp/%s_%s_win%i_gens%i_c%i.csv' %(pop1, pop2, NWIN, NGENS, C)
-            snpLocations, ancestralSuccess, admixedClassPre, admixedClass = runSVM.runSVM(fileNames, 
-                                                                                          nGens=NGENS, 
-                                                                                          win_size=NWIN,
-                                                                                          svmC=C)
-            hmmSuccess, hmmStd, svmSuccess, svmStd =success(originFile, admixedClassPre, admixedClass)
-            winSizeBP, winSizeCM = runSVM.winSizeBPandCM(snpLocations, NWIN, CHROM)
-            #output summary data
-            print '%i:%i' %((time.time()-t0)/60, (time.time()-t0)%60),
-            print '%s(%2.2g) + %s(%2.2g)' %(pop1, 100*np.sum(admixedClass.flatten()==0)/float(np.prod(admixedClass.shape)), pop2, 100*np.sum(admixedClass.flatten()==1)/float(np.prod(admixedClass.shape))),
-            print 'Correct: %0.3g+/-%0.2g (%0.3g+/-%0.2g)' %(hmmSuccess, hmmStd, svmSuccess,svmStd)
-            summaryOutFile.write('%s\t%s\t%0.4g\t%0.4g\t%0.4g\t%0.4g\t%0.4g\t%0.4g\n' %(pop1, pop2, 
-                                                                                       winSizeBP.mean(), 
-                                                                                       winSizeCM.mean(), 
-                                                                                       svmSuccess, 
-                                                                                       svmStd, 
-                                                                                       hmmSuccess, 
-                                                                                       hmmStd ))
-            summaryOutFile.flush()
-            #Output detail results
-            fp=open(outFile, 'w')  #Save output to file
-            starts=snpLocations[::NWIN]
-            fp.write('Chrom\t Position\t AncestralSuccess\t WinSize[BP]\t WinSize[CM]\t AdmixedClass\n')
-            for i in range(len(starts)):
-                fp.write('%s\t%s\t%s\t%i\t%g\t' %(CHROM, starts[i], ancestralSuccess[i], winSizeBP[i], winSizeCM[i]))
-                fp.write('\t'.join(np.asarray(admixedClass[i,:], np.str_)))
-                fp.write('\n')
-            fp.close()
-summaryOutFile.close()
+def classify(fileNames, smoother, win_size=100, classifier=runSVM.regionClassifier.SVMpymvpa(C)):
+    """Deconvolves ancestry in last file based on ancestral
+    populations in first files.
+    Arguments:
+    - `fileNames`: list of fileNames
+    - `win_size`: number of snps in each window (defualt=100)
+    Returns:
+    - `ancestralSuccess`: success of cross validation in ancestral populations
+    - `admixedClassPre`: classification of admixed samples before hmm filter
+    - `admixedClass`:    classification of admixed samples after hmm filter
+    """
+    snpLocations=[]     #stores physical location from files
+    ancestralSuccess=[] #stores success of ancestral classification
+    admixedClass=[]     #stores classification of test Subjects
+    files=fileReader.concurrentFileReader(*fileNames, key=1)
+
+    subjects=files.next()
+    nTrain=np.sum(map(len, subjects[:-1]))  #Number of samples in training set
+    nTest=len(subjects[-1]);
+    labelsTrain =sum([[i]*len(sub) for i, sub in enumerate(subjects[:-1])],[])
+    vals=np.zeros((nTrain+nTest, win_size))  #temporary storage of output
+    while True: 
+        for i, (snpName, snpLocation, snps) in enumerate(files):
+            snpLocations.append(float(snpLocation))
+            vals[:,i] = fileReader.nucleotides2Haplotypes(sum(snps, []))
+            if i==vals.shape[1]-1:
+                break
+        print snpName, snpLocation, len(snpLocations)#, [np.unique(vals[labelsTrain==n1, :]) for n1 in range(56)]  
+        #idx=(np.abs(winVals.sum(0))!=nSubs)     #WRONG!Filter any SNPs without information across samples
+        # print startPos, winVals.shape, cv_result #WRONG
+            
+        ancestral, admixed=classifier(vals[:nTrain,:i], labelsTrain, vals[-nTest:, :i])
+        ancestralSuccess.append(ancestral)
+        admixedClass.append(admixed)
+        if i<win_size-1:
+            break
+    admixedClassPre=np.array(admixedClass)
+    admixedClass, p=smoother(snpLocations, ancestralSuccess, admixedClassPre)
+    return ancestralSuccess, admixedClassPre, admixedClass, p, subjects[-1]
+
+
+
+if __name__ == '__main__':
+    ####################################
+    #Find all ancestral populations and set up "global variables"
+    ####################################
+    ancestralFiles=glob.glob(FILEANCESTRAL %'*'+'.gz')
+    pops=[re.findall(FILEANCESTRAL%'(.*)'+'.gz', fileName)[0] for fileName in ancestralFiles]
+    pops.sort()
+    fst=readFst()
+    classifier=runSVM.regionClassifier.SVMpymvpa(C)
+    # ####################################
+    # #Run all 2-way
+    # ####################################
+    # twoPopResults=results(WINSIZE, NGENS)
+    # smoother=runSVM.regionClassifier.hmmFilter(geneticMapFile=GM_FILE,nGens=NGENS,nClasses=2)
+    # print NGENS, WINSIZE, C
+    # for pop1 in pops:
+    #     for pop2 in pops:
+    #         admixedFile=FILE2ADMPOPS%(pop1, pop2) +'.gz'
+    #         if not  os.path.isfile(admixedFile): continue  #If file does not exist
+    #         t0=time.time()
+    #         originFile=FILE2ADMPOPSORIGIN%(pop1, pop2) + '.gz'
+    #         fileNames=[FILEANCESTRAL%pop1+'.gz', FILEANCESTRAL%pop2+'.gz', admixedFile]
+    #         ancSuccess, admClassPre, admClass, p, subs = classify(fileNames, smoother, WINSIZE)
+    #         hmmSuccess, hmmStd, svmSuccess, svmStd =success(originFile, admClassPre, admClass)
+    #         twoPopResults.append([pop1, pop2], fst[pop1][pop2], [hmmSuccess, hmmStd], p, admClass)
+    #         print '%i:%i\t%s-%s\t%0.3g\t%0.3g' %((time.time()-t0)/60, (time.time()-t0)%60, pop1, pop2, fst[pop1][pop2], hmmSuccess)
+    # with open(OUTPUT_TWO_POP_SVM,'w') as fp: cPickle.dump(twoPopResults, fp)
+
+    # ####################################
+    # #Run Two way LAMP
+    # ####################################
+    # print '\nLAMP populations'
+    # twoPopResults=results(1, 1)
+    # for pop1, pop2 in [('french', 'bedouin'), ('bedouin', 'yoruba'), ('han', 'bedouin'), ('french', 'yoruba'), ('han', 'yoruba'), ('papuan', 'yoruba'), ('papuan', 'karitiana')]:
+    #     t0=time.time()
+    #     admixedFile=FILE2ADMPOPS%(pop1, pop2) +'.gz'
+    #     if not  os.path.isfile(admixedFile): continue  #If file does not exist
+    #     ancestralFile1=FILEANCESTRAL%pop1+'.gz'
+    #     ancestralFile2=FILEANCESTRAL%pop2+'.gz'
+    #     originFile=FILE2ADMPOPSORIGIN%(pop1, pop2) + '.gz'
+    #     runLamp.convertFiles(ancestralFile1, ancestralFile2, admixedFile)
+    #     proc=runLamp.subprocess.Popen('lamp config.txt', shell=True, stdout=runLamp.subprocess.PIPE, stderr=runLamp.subprocess.STDOUT)
+    #     tmp=proc.stdout.readlines()
+    #     succMean, succStd, ancestry, correct= runLamp.readResults(originFile)
+    #     runLamp.cleanUp()
+    #     twoPopResults.append([pop1, pop2], fst[pop1][pop2], [succMean, succStd], [], ancestry)
+    #     print '%i:%i\t%s-%s\t%0.3g\t%0.3g' %((time.time()-t0)/60, (time.time()-t0)%60, pop1, pop2, fst[pop1][pop2], succMean)
+    # with open(OUTPUT_TWO_POP_LAMP,'w') as fp: cPickle.dump(twoPopResults, fp)
+
+    # ####################################
+    # #Run all 3-way admixture
+    # ####################################
+    # print '\nThree populations'
+    # threePopResults=[results(WINSIZE, NGENS), results(WINSIZE, NGENS)]
+    # smoother=runSVM.regionClassifier.hmmFilter(geneticMapFile=GM_FILE,nGens=NGENS,nClasses=3)
+    # for pop1 in pops:
+    #     popNames=[['yoruba', 'french', pop1],['han', 'japanese', pop1]]
+    #     admixedFile=[FILE3ADMPOPSCEUYRI%pop1+'.gz', FILE3ADMPOPSHANJPN%pop1+'.gz']
+    #     originFiles=[FILE3ADMPOPSCEUYRIORIGIN%pop1+'.gz', FILE3ADMPOPSHANJPNORIGIN%pop1+'.gz']
+    #     for i, (anc1, anc2, anc3) in enumerate(popNames):
+    #         if not  os.path.isfile(admixedFile[i]): continue  #If file does not exist
+    #         t0=time.time()
+    #         fileNames=[FILEANCESTRAL%anc1+'.gz', FILEANCESTRAL%anc2+'.gz', FILEANCESTRAL%anc3+'.gz', admixedFile[i]]
+    #         ancSuccess, admClassPre, admClass, p, subs = classify(fileNames, smoother, WINSIZE)
+    #         hmmSuccess, hmmStd, svmSuccess, svmStd =success(originFiles[i], admClassPre, admClass)
+    #         currFst=min(fst[anc3][anc1], fst[anc3][anc2])
+    #         threePopResults[i].append([anc1,anc2,anc3], currFst, [hmmSuccess, hmmStd], p, admClass)
+    #         print '%i:%i\t%s-%s-%s\t%0.3g\t%0.3g' %((time.time()-t0)/60, (time.time()-t0)%60, anc1, anc2, anc3, currFst, hmmSuccess)
+    # with open(OUTPUT_THREE_AFRIC_SVM,'w') as fp: cPickle.dump(threePopResults[0], fp)
+    # with open(OUTPUT_THREE_ASIAN_SVM,'w') as fp: cPickle.dump(threePopResults[1], fp)
+
+    # ####################################
+    # #Run all Variable generations
+    # ####################################
+    # print '\nChanges in generations'
+    # twoPopResults=results(WINSIZE, NGENS)
+    # for pop1 in POPS:
+    #     for pop2 in POPS:
+    #         for nGens in SAMPLEGENERATIONS:
+    #             t0=time.time()
+    #             admixedFile=FILEGENSADMIX%(pop1, pop2, nGens)+'.gz'
+    #             if not  os.path.isfile(admixedFile): continue  #If file does not exist
+    #             fileNames=[FILEANCESTRAL%pop1+'.gz', FILEANCESTRAL%pop2+'.gz', admixedFile]
+    #             originFile=FILEGENSADMIXORIGIN%(pop1, pop2, nGens)+'.gz'
+    #             smoother=runSVM.regionClassifier.hmmFilter(geneticMapFile=GM_FILE,nGens=nGens,nClasses=2)
+    #             ancSuccess, admClassPre, admClass, p, subs = classify(fileNames, smoother, WINSIZE)
+    #             hmmSuccess, hmmStd, svmSuccess, svmStd =success(originFile, admClassPre, admClass, WINSIZE)
+    #             twoPopResults.append([pop1, pop2], nGens, [hmmSuccess, hmmStd], p, admClass)
+    #             print '%i:%i\t%s-%s\t%0.3g\t%0.3g' %((time.time()-t0)/60, (time.time()-t0)%60, pop1, pop2, nGens, hmmSuccess)
+    # with open(OUTPUT_TWO_POP_SVM_GENS,'w') as fp: cPickle.dump(twoPopResults, fp)
+
+    # ####################################
+    # #Run all Variable alpha
+    # ####################################
+    # print '\nChanges in alpha'
+    # twoPopResults=results(WINSIZE, NGENS)
+    # smoother=runSVM.regionClassifier.hmmFilter(geneticMapFile=GM_FILE,nGens=NGENS,nClasses=2)
+    # for pop1 in POPS:
+    #     for pop2 in POPS:
+    #         for a in ALPHAS:
+    #             t0=time.time()
+    #             admixedFile=FILEALPHAADMIX%(pop1, pop2, NGENS,a)+'.gz'
+    #             if not  os.path.isfile(admixedFile): continue  #If file does not exist
+    #             fileNames=[FILEANCESTRAL%pop1+'.gz', FILEANCESTRAL%pop2+'.gz', admixedFile]
+    #             originFile=FILEALPHAADMIXORIGIN%(pop1, pop2, NGENS,a)+'.gz'
+    #             ancSuccess, admClassPre, admClass, p, subs = classify(fileNames, smoother, WINSIZE)
+    #             hmmSuccess, hmmStd, svmSuccess, svmStd =success(originFile, admClassPre, admClass)
+    #             twoPopResults.append([pop1, pop2], a, [hmmSuccess, hmmStd], p, admClass)
+    #             print '%i:%i\t%s-%s\t%0.3g\t%0.3g' %((time.time()-t0)/60, (time.time()-t0)%60, pop1, pop2, a, hmmSuccess)
+    # with open(OUTPUT_TWO_POP_SVM_ALPHA,'w') as fp: cPickle.dump(twoPopResults, fp)
+
+    # ####################################
+    # #Experiment with wrong generations
+    # ####################################
+    # print '\nChanges delta Generations'
+    # twoPopResults=results(WINSIZE, NGENS)
+    # for pop1 in POPS:
+    #     for pop2 in POPS:
+    #         for nGens in [.5, 1.,5.,10.,20.,100.,200.]:
+    #             t0=time.time()
+    #             admixedFile=FILEGENSADMIX%(pop1, pop2, 10)+'.gz'
+    #             if not  os.path.isfile(admixedFile): continue  #If file does not exist
+    #             fileNames=[FILEANCESTRAL%pop1+'.gz', FILEANCESTRAL%pop2+'.gz', admixedFile]
+    #             originFile=FILEGENSADMIXORIGIN%(pop1, pop2, 10)+'.gz'
+    #             smoother=runSVM.regionClassifier.hmmFilter(geneticMapFile=GM_FILE,nGens=nGens,nClasses=2)
+    #             ancSuccess, admClassPre, admClass, p, subs = classify(fileNames, smoother, WINSIZE)
+    #             hmmSuccess, hmmStd, svmSuccess, svmStd =success(originFile, admClassPre, admClass)
+    #             twoPopResults.append([pop1, pop2], 10/nGens, [hmmSuccess, hmmStd], p, admClass)
+    #             print '%i:%i\t%s-%s\t%0.3g\t%0.3g' %((time.time()-t0)/60, (time.time()-t0)%60, pop1, pop2, 10/nGens, hmmSuccess)
+    # with open(OUTPUT_TWO_POP_SVM_DELTA_GENS,'w') as fp: cPickle.dump(twoPopResults, fp)
+            
+
+    # ####################################
+    # #Experiment with window size
+    # ####################################
+    # print '\nChanges in window size with 5 generations'
+    # twoPopResults=results(WINSIZE, NGENS)
+    # smoother=runSVM.regionClassifier.hmmFilter(geneticMapFile=GM_FILE,nGens=NGENS,nClasses=2)
+    # for pop1 in POPS:
+    #     for pop2 in POPS:
+    #         for winSize in [10, 50, 100, 200, 500, 1000, 2000, 5000]:
+    #             t0=time.time()
+    #             admixedFile=FILEGENSADMIX%(pop1, pop2, 5)+'.gz'
+    #             if not  os.path.isfile(admixedFile): continue  #If file does not exist
+    #             fileNames=[FILEANCESTRAL%pop1+'.gz', FILEANCESTRAL%pop2+'.gz', admixedFile]
+    #             originFile=FILEGENSADMIXORIGIN%(pop1, pop2, 5)+'.gz'
+    #             ancSuccess, admClassPre, admClass, p, subs = classify(fileNames, smoother, winSize)
+    #             hmmSuccess, hmmStd, svmSuccess, svmStd =success(originFile, admClassPre, admClass, winSize)
+    #             twoPopResults.append([pop1, pop2], winSize, [hmmSuccess, hmmStd], p, admClass)
+    #             print '%i:%i\t%s-%s\t%0.3g\t%0.3g' %((time.time()-t0)/60, (time.time()-t0)%60, pop1, pop2, winSize, hmmSuccess)
+    # with open(OUTPUT_TWO_POP_SVM_WIN,'w') as fp: cPickle.dump(twoPopResults, fp)
+
