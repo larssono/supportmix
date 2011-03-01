@@ -1,7 +1,8 @@
+import sys; sys.path.append('../')
 import glob, runSVM, numpy as np, fileReader, time
 NGENS=1
 NWIN=100
-ADMIXEDNAMES='data_simulated/hgdp/admixed_hgdp_%s_%s.chr1.csv.gz'
+ADMIXEDNAMES='hgdp/admixed_hgdp_%s_%s.chr1.csv.gz'
 CHROM=1
 C=1000
 
@@ -17,13 +18,13 @@ def success(originFile, admixedClassPre, admixedClass):
 summaryOutFile=open('summary_WIN%i_GENS%i_C%i.txt' %(NWIN, NGENS, C), 'w')
 summaryOutFile.write('pop1\tpop2\twin[bp]\twin[cm]\tsuccess[svm]\tstd[svm]\tsuccess[hmm]\tstd[hmm]\n')
 
-admixedFiles=glob.glob('data_simulated/hgdp/admixed_hgdp*')
-ancestralFiles=glob.glob('data_simulated/hgdp/ancestral_hgdp*')
+admixedFiles=glob.glob('hgdp/admixed_hgdp*')
+ancestralFiles=glob.glob('hgdp/ancestral_hgdp*')
 t0=time.time()
 for ancestral1 in ancestralFiles:
     for ancestral2 in ancestralFiles:
-        pop1=ancestral1.replace('data_simulated/hgdp/ancestral_hgdp_', '').replace('.chr1.csv.gz', '')
-        pop2=ancestral2.replace('data_simulated/hgdp/ancestral_hgdp_', '').replace('.chr1.csv.gz', '')
+        pop1=ancestral1.replace('hgdp/ancestral_hgdp_', '').replace('.chr1.csv.gz', '')
+        pop2=ancestral2.replace('hgdp/ancestral_hgdp_', '').replace('.chr1.csv.gz', '')
         admixedFile=ADMIXEDNAMES%(pop1, pop2)
         if admixedFile in admixedFiles:
             originFile=admixedFile.replace('_hgdp_', '_origin_hgdp_')
