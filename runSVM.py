@@ -74,9 +74,9 @@ def runSVM(fileNames, nGens=6, svmC=100, win_size=100):
         if i<win_size-1:
             break
     admixedClassPre=np.array(admixedClass)
-    admixedClass=smoother(snpLocations, ancestralSuccess, admixedClassPre)
+    admixedClass, p=smoother(snpLocations, ancestralSuccess, admixedClassPre)
 
-    return snpLocations, ancestralSuccess, admixedClassPre, admixedClass
+    return snpLocations, ancestralSuccess, admixedClassPre, admixedClass, p
 
 
 if __name__ == '__main__':
@@ -93,7 +93,7 @@ if __name__ == '__main__':
     (options, args) = parser.parse_args()
 
     fileNames=args
-    snpLocations, ancestralSuccess, admixedClassPre, admixedClass = runSVM(fileNames, 
+    snpLocations, ancestralSuccess, admixedClassPre, admixedClass,p = runSVM(fileNames, 
                                                                            nGens=options.nGens, 
                                                                            win_size=options.win)
     for i, pop in enumerate(fileNames[:-1]):

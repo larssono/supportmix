@@ -159,11 +159,14 @@ class hmmFilter(globalFilter):
 
         #Go through and calculate hmm values
         results=[]
+        posterior=[]
         for i in range(admixedClass.shape[1]):
             model.forward_backward(admixedClass[:,i])
             maxIdx=model.pstate.argsort(1)[:,-1]
             results.append(maxIdx)
-        return np.array(results).T
+            p=[np.asarray(model.pstate)[k][j] for (k,j) in enumerate(maxIdx)]
+            posterior.append(p)
+        return np.array(results).T, np.asarray(posterior).T
 
         
 #--------------------------Helper functions--------------------------------------
