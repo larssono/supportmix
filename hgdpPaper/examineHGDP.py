@@ -9,10 +9,10 @@ C=1000
 def success(originFile, admixedClassPre, admixedClass):
     correct=np.array([l.split()[2:] for l in fileReader.openfile(originFile).readlines()[1:]], np.float)
     #Compare and find successRate
-    svmClass=np.repeat(admixedClassPre, NWIN, 0)
-    hmmClass=np.repeat(admixedClass, NWIN, 0)
-    svmSuccess=100-sum(abs(svmClass[:len(correct),:]-correct))/len(correct)*100
-    hmmSuccess=100-sum(abs(hmmClass[:len(correct),:]-correct))/len(correct)*100
+    svmClass=np.repeat(admixedClassPre, WINSIZE, 0)[:len(correct),:]
+    hmmClass=np.repeat(admixedClass, WINSIZE, 0)[:len(correct),:]
+    svmSuccess=100*(svmClass==correct).sum(0)/float(len(correct))
+    hmmSuccess=100*(hmmClass==correct).sum(0)/float(len(correct))
     return np.mean(hmmSuccess), np.std(hmmSuccess), np.mean(svmSuccess), np.std(svmSuccess)
 
 summaryOutFile=open('summary_WIN%i_GENS%i_C%i.txt' %(NWIN, NGENS, C), 'w')
