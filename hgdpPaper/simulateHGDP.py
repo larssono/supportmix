@@ -34,7 +34,7 @@ nPops=np.asarray([l.shape[1] for l in pops])
 popIdx=np.nonzero(nPops>SMALLEST_POP)[0]  #Populations with enough samples
 
 # ##############################################################
-# #Go through and mate pairwise populations and calculated Fst
+# #Go through and mate pairwise populations and calculate Fst
 # ##############################################################
 # fpFst=open(OUTFILE_FST, 'w')
 # for  i, idxPop1 in enumerate(popIdx):
@@ -87,7 +87,6 @@ for i, (admixedPop1, origin1) in enumerate([mate.poissonMating(popYri[:,:NOFFSPR
             mate.saveHaplotypes('hgdp3/admixed_hgdp_han_japanese_%s.%s.csv' %(pop3Name, CHR), ['ind']*2*NOFFSPRING, snpNames, snpPos, admixedPop)
             mate.saveHaplotypes('hgdp3/admixed_hgdp_origin_han_japanese_%s.%s.csv' %(pop3Name, CHR), ['ind']*NOFFSPRING, snpNames, snpPos, admixedOrigin)
 
-asdf
 ##############################################################
 #Simulate HGDP samples with varying numbers of generations
 ##############################################################
@@ -100,12 +99,30 @@ for  i, idxPop1 in enumerate(popIdx):
         pop2Name=popNames[idxPop2].lower().replace(' ', '_')
         pop2=pops[idxPop2]
         for nGens in [1,5,10,50,100,200]:
+            print pop1Name, pop2Name, nGens
             admixedPop, admixedOrigin=mate.poissonMating(pop1[:,:NOFFSPRING*2], pop2[:,:NOFFSPRING*2],
                                                          snpPos, mapFile=GM_FILE,nGens=nGens, percentPop1=alpha)
             mate.saveHaplotypes('hgdp_generations/admixed_hgdp_%s_%s_%ggens.%s.csv'%(pop1Name, pop2Name, nGens, CHR), ['ind']*2*NOFFSPRING, 
                                 snpNames, snpPos, admixedPop)
             mate.saveHaplotypes('hgdp_generations/admixed_origin_hgdp_%s_%s_%ggens.%s.csv'%(pop1Name, pop2Name, nGens, CHR), 
                                 ['ind']*2*NOFFSPRING, snpNames, snpPos, admixedOrigin)
+            if nGens==10:
+                for a in [0.1, 0.2, 0.3, 0.4, 0.5]:
+                    admixedPop, admixedOrigin=mate.poissonMating(pop1[:,:NOFFSPRING*2], pop2[:,:NOFFSPRING*2],
+                                                                 snpPos, mapFile=GM_FILE,nGens=nGens, percentPop1=a)
+                    mate.saveHaplotypes('hgdp_alpha/admixed_hgdp_%s_%s_%ggens_%galpha.%s.csv'%(pop1Name, pop2Name, nGens,a, CHR), 
+                                        ['ind']*2*NOFFSPRING, snpNames, snpPos, admixedPop)
+                    mate.saveHaplotypes('hgdp_alpha/admixed_origin_hgdp_%s_%s_%ggens_%galpha.%s.csv'%(pop1Name, pop2Name, nGens,a, CHR), 
+                                        ['ind']*2*NOFFSPRING, snpNames, snpPos, admixedOrigin)
 
+# #########################################################
+# # Possible pops for missing ancestry
+# #########################################################
+# ancestral_hgdp_han.chr1.csv	ancestral_hgdp_orcadian.chr1.csv	0.060, 88, 86
+# ancestral_hgdp_han.chr1.csv	ancestral_hgdp_palestinian.chr1.csv	0.058, 88, 86
+# ancestral_hgdp_han.chr1.csv	ancestral_hgdp_hazara.chr1.csv  	0.031, 40, 86
+# ancestral_hgdp_han.chr1.csv	ancestral_hgdp_french.chr1.csv   	0.067, 48, 86
+# ancestral_hgdp_french.chr1.csv	ancestral_hgdp_yoruba.chr1.csv  	0.080, 42, 48
+# ancestral_hgdp_han.chr1.csv	ancestral_hgdp_yoruba.chr1.csv  	0.093, 42, 86
+# ancestral_hgdp_han.chr1.csv	ancestral_hgdp_japanese.chr1.csv	0.004, 86, 52
 
-#simulate two populations with different alpha
