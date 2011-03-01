@@ -131,7 +131,7 @@ class hmmFilter(globalFilter):
         - `successRate`:  Probabilities of succesfully classifying each snp
         - `admixedClass`: classification made
         """
-        mapLocations=self.gm.pos2gm(snpLocations)
+        mapLocations=map(self.gm.pos2gm, snpLocations)
         win_size=int(np.ceil(len(mapLocations)/float(admixedClass.shape[0])))
         #determine transition matrices
         a=[]; b=[]
@@ -159,14 +159,11 @@ class hmmFilter(globalFilter):
 
         #Go through and calculate hmm values
         results=[]
-        posterior=[]
         for i in range(admixedClass.shape[1]):
             model.forward_backward(admixedClass[:,i])
             maxIdx=model.pstate.argsort(1)[:,-1]
             results.append(maxIdx)
-            p=[np.asarray(model.pstate)[k][j] for (k,j) in enumerate(maxIdx)]
-            posterior.append(p)
-        return np.array(results).T, np.asarray(posterior).T
+        return np.array(results).T
 
         
 #--------------------------Helper functions--------------------------------------
@@ -187,17 +184,19 @@ class geneticMap(object):
     def pos2gm(self, pos):
         """Converts position in bp to position in centiMorgans"""
         m=self.m
-        pos=np.asarray(pos)
-        results=np.empty_like(pos)
-
-        i=m[:,0].searchsorted(pos)  #Find probable locations in map
-        i[i==len(m)]=len(m)-1       #Correct those that are beyond the end of the genetic map
-        idx=(m[i,0]==pos)|(i==len(m)-1)|(i==0)   #Fill results with those that match exactly
-        results[idx]=m[i[idx], 1];
-        idx=np.logical_not(idx)
-        #Fill those that require interpolation
-        results[idx]= (m[i[idx],1]-m[i[idx]-1,1]) / (m[i[idx],0]-m[i[idx]-1,0])*(pos[idx]-m[i[idx]-1,0]) + m[i[idx]-1,1]
-        return results
+        i=m[:,0].searchsorted(pos)
+        try:
+            if m[i,0]==pos or i==0:
+                return m[i,1]
+            elif i==0:
+                return m[0,1]
+            else:  #linear interpolation
+                return (m[i,1]-m[i-1,1])/(m[i,0]-m[i-1,0])*(pos-m[i-1,0]) + m[i-1,1]
+        except IndexError:
+            if i==len(m):
+                return m[-1,1]
+            else:
+                raise IndexError
 
 
 if __name__ == '__main__':

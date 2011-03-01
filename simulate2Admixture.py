@@ -1,6 +1,6 @@
 import simulateAdmixture as mate, numpy as np
 
-DATA_DIR='../../human_genome_data/'
+DATA_DIR='../../../human_genome_data/'
 CHR='chr1'
 POP1='yoruba'
 POP2='karitiana'

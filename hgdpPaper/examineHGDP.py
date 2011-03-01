@@ -1,30 +1,29 @@
-import sys; sys.path.append('../')
 import glob, runSVM, numpy as np, fileReader, time
 NGENS=1
 NWIN=100
-ADMIXEDNAMES='hgdp/admixed_hgdp_%s_%s.chr1.csv.gz'
+ADMIXEDNAMES='data_simulated/hgdp/admixed_hgdp_%s_%s.chr1.csv.gz'
 CHROM=1
 C=1000
 
 def success(originFile, admixedClassPre, admixedClass):
     correct=np.array([l.split()[2:] for l in fileReader.openfile(originFile).readlines()[1:]], np.float)
     #Compare and find successRate
-    svmClass=np.repeat(admixedClassPre, WINSIZE, 0)[:len(correct),:]
-    hmmClass=np.repeat(admixedClass, WINSIZE, 0)[:len(correct),:]
-    svmSuccess=100*(svmClass==correct).sum(0)/float(len(correct))
-    hmmSuccess=100*(hmmClass==correct).sum(0)/float(len(correct))
+    svmClass=np.repeat(admixedClassPre, NWIN, 0)
+    hmmClass=np.repeat(admixedClass, NWIN, 0)
+    svmSuccess=100-sum(abs(svmClass[:len(correct),:]-correct))/len(correct)*100
+    hmmSuccess=100-sum(abs(hmmClass[:len(correct),:]-correct))/len(correct)*100
     return np.mean(hmmSuccess), np.std(hmmSuccess), np.mean(svmSuccess), np.std(svmSuccess)
 
 summaryOutFile=open('summary_WIN%i_GENS%i_C%i.txt' %(NWIN, NGENS, C), 'w')
 summaryOutFile.write('pop1\tpop2\twin[bp]\twin[cm]\tsuccess[svm]\tstd[svm]\tsuccess[hmm]\tstd[hmm]\n')
 
-admixedFiles=glob.glob('hgdp/admixed_hgdp*')
-ancestralFiles=glob.glob('hgdp/ancestral_hgdp*')
+admixedFiles=glob.glob('data_simulated/hgdp/admixed_hgdp*')
+ancestralFiles=glob.glob('data_simulated/hgdp/ancestral_hgdp*')
 t0=time.time()
 for ancestral1 in ancestralFiles:
     for ancestral2 in ancestralFiles:
-        pop1=ancestral1.replace('hgdp/ancestral_hgdp_', '').replace('.chr1.csv.gz', '')
-        pop2=ancestral2.replace('hgdp/ancestral_hgdp_', '').replace('.chr1.csv.gz', '')
+        pop1=ancestral1.replace('data_simulated/hgdp/ancestral_hgdp_', '').replace('.chr1.csv.gz', '')
+        pop2=ancestral2.replace('data_simulated/hgdp/ancestral_hgdp_', '').replace('.chr1.csv.gz', '')
         admixedFile=ADMIXEDNAMES%(pop1, pop2)
         if admixedFile in admixedFiles:
             originFile=admixedFile.replace('_hgdp_', '_origin_hgdp_')
