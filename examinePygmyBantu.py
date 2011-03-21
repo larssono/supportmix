@@ -102,7 +102,7 @@ cvte=pymvpa.CrossValidatedTransferError(pymvpa.TransferError(classifier),
 AllAncestralSuccess=[]
 AllAdmixedClass=[]
 
-for CHROM in range(3,4):
+for CHROM in range(20,23):
     fileNames=[LEMANDE%CHROM, NGUMBA%CHROM, TIKAR_S%CHROM, BAKOLA%CHROM, BAKA%CHROM, BEDZAN%CHROM]
     # fileNames=['tmp/pygmybantu_experimentation_20101014/ancestral_yoruba.chr%i.csv' %CHROM,
     #           'tmp/pygmybantu_experimentation_20101014/admixed_yoruba_karitiana.chr%i.csv.gz' %CHROM]    
@@ -150,27 +150,35 @@ for CHROM in range(3,4):
     smoother=regionClassifier.hmmFilter(geneticMapFile=MAPFILES%CHROM,nGens=nGens,nClasses=2)
     admixedClass, p=smoother(snpLocations, ancestralSuccess, admixedClassPre)  #TODO fix so this work
 
+    nPygmy=admixedClass.shape[1]
+    print 'Chromosome %i'%CHROM
     print 'Percent Pygmy: %0.2g%% (%0.2g)' %((admixedClass==1).sum()/float(np.prod(admixedClass.shape))*100, float(nAncestral)/len(idxPygmy)*100)
-    print 'Percent Success: %0.2g %%' %(np.mean(ancestralSuccess)*100)
-
+    #print 'Percent Success: %0.2g %%' %(np.mean(ancestralSuccess)*100)
+    print '-'*40
     # sizeBP, sizeCM=winSizeBPandCM(snpLocations, winSize, CHROM)
     pylab.figure()
-    pylab.axes([0.1, 0.4, .8, .5])
-    #p[p<=np.sort(p.flatten())[-p.size*.30]]=0
+    pylab.axes([0.1, 0.4, .6, .5])
+    pylab.title('Chromosome %i' %CHROM)
     pylab.imshow(((admixedClass*2-1)*p).T, interpolation='nearest', cmap=pylab.cm.RdBu)
-    print pylab.xticks()
-    pylab.axis('tight'); xticks=range(pylab.xticks()[0][1], pylab.xticks()[0][-2], 10)# xticks=range(#xticks=np.asarray(pylab.xticks()[0][1:-1], np.int)
-    pylab.xticks(xticks, np.asarray(snpLocations[::winStep][xticks], np.int))
-    pylab.ylabel('Pygmy Samples')
-    pylab.axes([0.1, 0.1, .8, .2])
-    #pylab.plot(ancestralSuccess, color='blue' )
-    pylab.plot(p.mean(1))
+    pylab.axis('tight'); xticks=range(int(pylab.xticks()[0][1]), int(pylab.xticks()[0][-1]), 10)# xticks=range(#xticks=np.asarray(pylab.xticks()[0][1:-1], np.int)
+    pylab.xticks([]); pylab.ylabel('Pygmy Samples')
+    #Plot average Pygmy Ancestry per sample
+    pylab.axes([0.71, 0.4, .25, .5])
+    #Ancestry per position
+    pylab.plot(admixedClass.mean(0), range(nPygmy)); pylab.ylim(nPygmy, 0); pylab.yticks([]); pylab.title('Percent Pygmy'); pylab.xlim(0,1); pylab.xticks([0,.5,1])
+    pylab.axes([0.1, 0.1, .6, .28])
     pylab.plot(admixedClass.mean(1))
-    pylab.ylim([.5, 1])
-    pylab.ylabel('<Posterior p>')
-    pylab.xlabel('Chromosome %i' %CHROM)
+    pylab.ylim([0, 1])
+    pylab.ylabel('Percent Pygmy')
     pylab.xlim(0, p.shape[0])
-    #pylab.xticks(xticks, np.asarray(snpLocations[::winStep][xticks], np.int))
+    pylab.xticks(xticks, np.asarray(np.round(snpLocations[::winStep][xticks]/1e6), np.int))
+    pylab.xlabel('Position [Mb]')
+    pylab.draw()
+    #Colorbar
+    pylab.axes([0.71, 0.1, .25, .28]); pylab.axis('off')
+    pylab.colorbar(fraction=1, aspect=4)
+    pylab.text(-10,0.85, 'Pygmy')
+    pylab.text(-10,0.0, 'Bantu')
 
 
 # pylab.figure();plotPCA(np.vstack((vals, ancestralSamples)), np.hstack((labels, [4]*nAncestral)))
