@@ -52,9 +52,7 @@ def classify(fileNames, smoother, win_size=100, classifier=runSVM.regionClassifi
                 break
         print snpName, snpLocation, len(snpLocations)#, [np.unique(vals[labelsTrain==n1, :]) for n1 in range(56)]  
         #idx=(np.abs(winVals.sum(0))!=nSubs)     #WRONG!Filter any SNPs without information across samples
-        # print startPos, winVals.shape, cv_result #WRONG
-            
-        ancestral, admixed=classifier(vals[:nTrain,:i], labelsTrain, vals[-nTest:, :i])
+        ancestral, admixed=classifier(vals[:nTrain,:i+1], labelsTrain, vals[-nTest:, :i+1])
         ancestralSuccess.append(ancestral)
         admixedClass.append(admixed)
         if i<win_size-1:

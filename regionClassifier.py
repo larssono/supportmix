@@ -81,12 +81,16 @@ class SVMpymvpa(regionClassifier):
         ds.sa['targets']=labelsTrain
         ds.sa['runtype']=np.random.randint(0, 2, valsTrain.shape[0])
         #pymvpa.zscore(ds, param_est=('targets', [1])) #Normalize somehow
-        
-        #Train on ancestral
-        self.classifier.train(ds)
-        admixedClass=self.classifier.predict(valsTest)
-        #Cross Validated ancestral population
-        if doAncestralCV:
+        try:     #Train on ancestral
+            self.classifier.train(ds)
+            admixedClass=self.classifier.predict(valsTest)
+        except pymvpa.DegenerateInputError:  #The valsTrain is to small to contain information
+            print "WARNING: Window is degenerat; guessing ancestry"
+            admixedClass=np.zeros(valsTest.shape[0])  #Just assign ancestry to first pop
+            if doAncestralCV:
+                return 1./len(np.unique(labelsTrain)), admixedClass  #Assign success to create equal 
+            return admixedClass
+        if doAncestralCV:          #Cross Validated ancestral population
             terr=pymvpa.TransferError(self.classifier)  #tracks error based on two datasets
             hspl = pymvpa.HalfSplitter(attr='runtype')
             cvte = pymvpa.CrossValidatedTransferError(terr, splitter=hspl)

@@ -49,28 +49,28 @@ S=S**2/np.sum(S**2)*100
 #np.savez(OUTPUT_PCA, popLabels=popLabels, Vt=Vt, S=S, subjects=subjects)  #Store results for plotting later
 
 
-# ###################################################
-# #  Run SupportMix
-# ###################################################
-# classifier=runSVM.regionClassifier.SVMpymvpa(C)
-# NGENS=3
-# WINSIZE=100
-# C=1
-# print NGENS, WINSIZE, C
-# for i in range(1,2):
-#     t0=time.time()
-#     CHR='chr%i' %i
-#     admixedFile=QATARFILES%locals()
-#     fileNames=glob.glob('data/HGDP_raw_data/phasedBeagle/*/*%(CHR)s.bgl.phased.gz'%locals())
-#     fileNames.sort()
-#     smoother=runSVM.regionClassifier.hmmFilter(geneticMapFile='data/hapmap2/genetic_map_%(CHR)s_b36.txt'%locals(),
-#                                                nGens=NGENS,nClasses=len(fileNames))
-#     pops=[file.split('/')[3] for file in fileNames]
-#     fileNames.append(admixedFile)
-#     ancSuccess, admClassPre, admClass, p, subs = classify(fileNames, smoother, WINSIZE, classifier)
-#     np.save('data/qatarSupportMix/qatar.%(CHR)s.%(WINSIZE)i.admixedClass'%locals(), admClass)
-#     np.save('data/qatarSupportMix/qatar.%(CHR)s.%(WINSIZE)i.posterior'%locals(), p)
-#     np.save('data/qatarSupportMix/qatar.%(CHR)s.%(WINSIZE)i.populations'%locals(), pops)
-#     np.save('data/qatarSupportMix/qatar.%(CHR)s.%(WINSIZE)i.subjects'%locals(), subs)
-#     print '%s:%i:%i\t' %(CHR, (time.time()-t0)/60, (time.time()-t0)%60)
+###################################################
+#  Run SupportMix
+###################################################
+classifier=runSVM.regionClassifier.SVMpymvpa(C)
+NGENS=3
+WINSIZE=100
+C=1
+print NGENS, WINSIZE, C
+for i in range(1,23):
+    t0=time.time()
+    CHR='chr%i' %i
+    admixedFile=QATARFILES%locals()
+    fileNames=glob.glob('data/HGDP_raw_data/phasedBeagle/*/*%(CHR)s.bgl.phased.gz'%locals())
+    fileNames.sort()
+    smoother=runSVM.regionClassifier.hmmFilter(geneticMapFile='data/hapmap2/genetic_map_%(CHR)s_b36.txt'%locals(),
+                                               nGens=NGENS,nClasses=len(fileNames))
+    pops=[file.split('/')[3] for file in fileNames]
+    fileNames.append(admixedFile)
+    ancSuccess, admClassPre, admClass, p, subs = classify(fileNames, smoother, WINSIZE, classifier)
+    np.save('data/qatarSupportMix/qatar.%(CHR)s.%(WINSIZE)i.admixedClass'%locals(), admClass)
+    np.save('data/qatarSupportMix/qatar.%(CHR)s.%(WINSIZE)i.posterior'%locals(), p)
+    np.save('data/qatarSupportMix/qatar.%(CHR)s.%(WINSIZE)i.populations'%locals(), pops)
+    np.save('data/qatarSupportMix/qatar.%(CHR)s.%(WINSIZE)i.subjects'%locals(), subs)
+    print '%s:%i:%i\t' %(CHR, (time.time()-t0)/60, (time.time()-t0)%60)
 

@@ -35,9 +35,9 @@ if __name__ == '__main__':
     idxQatar3=(popLabels=='Qatar3')
     idxNonQatar=np.logical_not(idxQatar1+idxQatar2+idxQatar3)
     pylab.scatter(-Vt[0,idxNonQatar], -Vt[1,idxNonQatar], s=15, c=colors[idxNonQatar,:], linewidths=0)
-    pylab.scatter(-Vt[0,idxQatar1], -Vt[1, idxQatar1], s=15, c=colors[idxQatar1,:], linewidths=0, marker='s')  #Qatar 1
-    pylab.scatter(-Vt[0,idxQatar2], -Vt[1, idxQatar2], s=15, c=colors[idxQatar2,:], linewidths=0, marker='v')
-    pylab.scatter(-Vt[0,idxQatar3], -Vt[1, idxQatar3], s=15, c=colors[idxQatar3,:], linewidths=0, marker='d')
+    pylab.scatter(-Vt[0,idxQatar1], -Vt[1, idxQatar1], s=15, c=colors[idxQatar1,:], linewidths=.1, marker='s')  #Qatar 1
+    pylab.scatter(-Vt[0,idxQatar2], -Vt[1, idxQatar2], s=15, c=colors[idxQatar2,:], linewidths=.1, marker='v')
+    pylab.scatter(-Vt[0,idxQatar3], -Vt[1, idxQatar3], s=15, c=colors[idxQatar3,:], linewidths=.1, marker='d')
     pylab.xlabel('PC 1 (%0.2g%%)' %S[0])
     pylab.ylabel('PC 2 (%0.2g%%)' %S[1])
     ax.annotate('a', xy=(-Vt[0,981], -Vt[1, 981] ),  xycoords='data', xytext=(-30, 10), textcoords='offset points',arrowprops=dict(facecolor='black', shrink=0.1, width=1, headwidth=4), horizontalalignment='center', verticalalignment='top' )
@@ -125,7 +125,7 @@ if __name__ == '__main__':
     ################################
     pylab.figure(figsize=(7.08,2.5))
     qatar=[]; oldSubs=[]; oldPops=[]
-    for i in [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,19,20,21,22]:
+    for i in range(1,23):
         CHR='chr%i' %i
         admClass=np.load('data/qatarSupportMix/qatar.%(CHR)s.100.admixedClass.npy'%locals())
         p=np.load('data/qatarSupportMix/qatar.%(CHR)s.100.posterior.npy'%locals())
@@ -165,6 +165,7 @@ if __name__ == '__main__':
         pylab.text(1, 65, ['a', 'b', 'c'][i])
         pylab.xticks(np.arange(len(selectedPop))+.45, selectedPop, rotation=90)
     pylab.subplots_adjust(left=.07, bottom=.28, right=.98, top=.95, hspace=.01)
+    #Write out the average ancestry of every subgroup.
     summary=[(pop, np.sum(qatar==i)/float(qatar.size)*100) for (i,pop) in enumerate(pops)]
     summary.sort(lambda s1,s2: int(np.sign(s2[1]-s1[1])))
     for s in summary:
@@ -274,7 +275,7 @@ if __name__ == '__main__':
     ####### SupportMix Plots ############x##    
     startPos=.05
     hSpace=0.001
-    for i in [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,19,20,21,22]:
+    for i in range(1,23):
         CHR='chr%i' %i
         admClass=np.load('data/qatarSupportMix/qatar.%(CHR)s.100.admixedClass.npy'%locals())
         p=np.load('data/qatarSupportMix/qatar.%(CHR)s.100.posterior.npy'%locals())
@@ -289,8 +290,8 @@ if __name__ == '__main__':
                 vals[i,j,:]=colors[admClass[i,j]]
         vals=vals/255.
         #print startPos
-        pylab.axes([.1, startPos, .8, .77*admClass.shape[0]/710.])
-        startPos+=.77*admClass.shape[0]/710.+hSpace
+        pylab.axes([.1, startPos, .8, .77*admClass.shape[0]/734.])
+        startPos+=.77*admClass.shape[0]/734.+hSpace
         vals[:,:,3]=p**.2
         pylab.imshow(vals[:,idx,:], interpolation='nearest')
         pylab.axis('tight'); pylab.draw(); 
