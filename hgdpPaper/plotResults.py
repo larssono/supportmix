@@ -3,7 +3,7 @@ import cPickle, pylab, numpy as np
 from mpl_toolkits.basemap import Basemap
 import string
 
-FILETYPE='png'
+FILETYPE='eps'
 
 popLegend=['Palestinian','Bedouin','Druze','Makrani','Sindhi','Balochi','Brahui','Hazara','Pathan','Kalash','Burusho','Mozabite','Mandenka','Yoruba','Biaka Pygmies','Mbuti Pygmies',
 'Bantu N.E.','Bantu S.W. Ovambo','San','Bantu S.W. Herero','Bantu S.E. S.Sotho', 'Bantu S.E. Tswana','Bantu S.E. Zulu','Yakut',
@@ -24,9 +24,9 @@ if __name__ == '__main__':
     ################################
     # Figure 1: PCA and Maps
     ################################
-    pylab.figure(figsize=(7.08, 4.08))
+    pylab.figure(figsize=(7.08, 7.08))
     ######### PCA plot ################
-    ax=pylab.axes([0.09, 0.28, 0.45, 0.68])
+    ax=pylab.axes([0.09, 0.51, 0.45, 0.45])
     pca=np.load(OUTPUT_PCA)
     Vt=pca['Vt']; S=pca['S']; popLabels=pca['popLabels']; subjects=pca['subjects']
     colors=np.asarray([POPCOLORS[l] for l in popLabels ])/255.
@@ -40,11 +40,11 @@ if __name__ == '__main__':
     pylab.scatter(-Vt[0,idxQatar3], -Vt[1, idxQatar3], s=15, c=colors[idxQatar3,:], linewidths=0, marker='d')
     pylab.xlabel('PC 1 (%0.2g%%)' %S[0])
     pylab.ylabel('PC 2 (%0.2g%%)' %S[1])
-    # ax.annotate('a', xy=(-Vt[0,981], -Vt[1, 981] ),  xycoords='data', xytext=(-30, 10), textcoords='offset points',arrowprops=dict(facecolor='black', shrink=0.1, width=1, headwidth=4), horizontalalignment='center', verticalalignment='top' )
-    # ax.annotate('b', xy=(-Vt[0,925], -Vt[1, 925] ),  xycoords='data', xytext=(-15, -20), textcoords='offset points',arrowprops=dict(facecolor='black', shrink=0.1, width=1, headwidth=4), horizontalalignment='center', verticalalignment='top' )
-    # ax.annotate('c', xy=(-Vt[0,1029], -Vt[1, 1029] ),  xycoords='data', xytext=(-30, 10), textcoords='offset points',arrowprops=dict(facecolor='black', shrink=0.1, width=1, headwidth=4), horizontalalignment='center', verticalalignment='top' )
+    ax.annotate('a', xy=(-Vt[0,981], -Vt[1, 981] ),  xycoords='data', xytext=(-30, 10), textcoords='offset points',arrowprops=dict(facecolor='black', shrink=0.1, width=1, headwidth=4), horizontalalignment='center', verticalalignment='top' )
+    ax.annotate('b', xy=(-Vt[0,925], -Vt[1, 925] ),  xycoords='data', xytext=(-15, -20), textcoords='offset points',arrowprops=dict(facecolor='black', shrink=0.1, width=1, headwidth=4), horizontalalignment='center', verticalalignment='top' )
+    ax.annotate('c', xy=(-Vt[0,1029], -Vt[1, 1029] ),  xycoords='data', xytext=(-30, 10), textcoords='offset points',arrowprops=dict(facecolor='black', shrink=0.1, width=1, headwidth=4), horizontalalignment='center', verticalalignment='top' )
     ######### Map plot ################
-    ax=pylab.axes([0.54, 0.28, 0.45, 0.68])
+    ax=pylab.axes([0.54, 0.51, 0.45, 0.45])
     map = Basemap(llcrnrlon=-180,llcrnrlat=-70,urcrnrlon=180,urcrnrlat=70, projection='merc',lat_ts=20, resolution = 'l',area_thresh = 100000. )
     map.drawcoastlines(linewidth=0.25)
     map.drawcountries(linewidth=0.05)
@@ -70,7 +70,7 @@ if __name__ == '__main__':
     pylab.axis('off')
     pylab.subplots_adjust(left=.08, bottom=.02, right=.98, top=.98, hspace=.01)
     ############# Legend ###################
-    pylab.axes([.07, 0.05, .91, .13])
+    pylab.axes([.07, 0.34, .91, .11])
     x,y=0,0
     X=(x for x in [5.8, 11.4, 18.4, 25.2, 31.4, 37.2])
     for pop in popLegend:
@@ -84,11 +84,45 @@ if __name__ == '__main__':
     pylab.xlim(-.25, 48)
     pylab.ylim(27, -2)
     pylab.axis('off')
+    ######### SupportMix Plots ################
+    startPos=0.09; hSpace=0.01
+    for i in range(3,0, -1):
+        CHR='chr%i' %i
+        admClass=np.load('data/qatarSupportMix/qatar.%(CHR)s.100.admixedClass.npy'%locals())
+        p=np.load('data/qatarSupportMix/qatar.%(CHR)s.100.posterior.npy'%locals())
+        pops=np.load('data/qatarSupportMix/qatar.%(CHR)s.100.populations.npy'%locals())
+        subs=np.load('data/qatarSupportMix/qatar.%(CHR)s.100.subjects.npy'%locals())
+        subs=np.asarray([sub[:-2] for sub in subs])
+        idx=np.hstack([np.nonzero(subs==rightOrd)[0] for rightOrd in qatarOrder])  #Get index of sorted subjects
+        colors=[POPCOLORS[label] for label in pops]
+        vals=np.zeros((admClass.shape[0],admClass.shape[1],4))
+        for i in range(admClass.shape[0]):
+            for j in range(admClass.shape[1]):
+                vals[i,j,:]=colors[admClass[i,j]]
+        vals=vals/255.
+        ax=pylab.axes([.07, startPos, .91, .8*admClass.shape[0]/602.])
+        startPos+=.8*admClass.shape[0]/602.+hSpace
+        pylab.imshow(vals[:,idx,:], interpolation='nearest')
+        pylab.axis('tight'); pylab.draw(); 
+        pylab.yticks([0,40], ['0', '250'], fontsize=6); 
+        pylab.xticks([])
+        pylab.ylabel(CHR+' pos[Mb]', fontsize=6)
+    ########## Arrows to sample individuals ######
+    ax=pylab.axes([.07, .03, .91, .06])
+    pylab.axis([0, 312, 0, -10]); pylab.axis('off')
+    pylab.text(156,0,  'Qatari individuals', horizontalalignment='center', fontsize=8)
+
+    for number, pos in [('a',100),('b',210),('c',284)]:
+        ax.annotate(number, xy=(pos, -9.5),  xycoords='data',
+                    xytext=(pos, -5), textcoords='data',
+                    arrowprops=dict(facecolor='black', shrink=0.1, width=1, headwidth=4),
+                    horizontalalignment='center', verticalalignment='top')
+
     pylab.savefig('fig1.'+FILETYPE,format=FILETYPE) 
 
-    # ################################
-    # # Figure 3 - average ancestry
-    # ################################
+    ################################
+    # Figure 2 - average ancestry
+    ################################
     pylab.figure(figsize=(7.08,2.5))
     qatar=[]; oldSubs=[]; oldPops=[]
     for i in [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,19,20,21,22]:
@@ -128,7 +162,7 @@ if __name__ == '__main__':
                         xytext=(4, 25), textcoords='data', arrowprops=dict(facecolor='black', shrink=0.1, width=1, headwidth=4),
                         horizontalalignment='center', verticalalignment='top', fontsize=8 )
 
-        #pylab.text(1, 65, ['a', 'b', 'c'][i])
+        pylab.text(1, 65, ['a', 'b', 'c'][i])
         pylab.xticks(np.arange(len(selectedPop))+.45, selectedPop, rotation=90)
     pylab.subplots_adjust(left=.07, bottom=.28, right=.98, top=.95, hspace=.01)
     summary=[(pop, np.sum(qatar==i)/float(qatar.size)*100) for (i,pop) in enumerate(pops)]
@@ -170,11 +204,10 @@ if __name__ == '__main__':
             percent=np.sum(q==popNumber, 0)/7.1
             tot+=percent
         print '%5s\t%0.2g+/-%0.2g\t %0.2g-%0.2g' %('S. African', np.mean(tot), np.std(tot), np.min(tot), np.max(tot))
-    pylab.savefig('fig3.'+FILETYPE,format=FILETYPE) 
-
+    pylab.savefig('fig2.'+FILETYPE,format=FILETYPE) 
 
     ################################
-    # Figure 4: Simulation results
+    # Figure 3: Simulation results
     ################################
     pylab.figure(figsize=(7.08,4.5))
     ######### HGDP SupportMix v Lamp ################
@@ -195,7 +228,7 @@ if __name__ == '__main__':
     pylab.subplot(2,2,2)    
     with open(OUTPUT_TWO_POP_SVM_GENS,'r') as fp: gens=cPickle.load(fp)
     success=np.asarray(gens.success)
-    pylab.semilogx(gens.fst[:6], success.reshape((6,6,2))[:,:,0].T, '-o')
+    pylab.semilogx(gens.fst[:6], success.reshape((6,6,2))[:,:,0].T, '-o', linewidth=.5, markersize=5)
     pylab.xticks(gens.fst[:6], gens.fst[:6])
     pylab.xlim(-4,210)
     pylab.xlabel('Generations since admixture')
@@ -204,7 +237,7 @@ if __name__ == '__main__':
     with open(OUTPUT_TWO_POP_SVM_DELTA_GENS,'r') as fp: g=cPickle.load(fp)
     success=np.asarray(g.success)
     for i in range(6):
-        pylab.semilogx(g.fst[:7], success[i*7:(i+1)*7,0], '-o')
+        pylab.semilogx(g.fst[:7], success[i*7:(i+1)*7,0], '-o', linewidth=.5, markersize=5)
     pylab.xticks(g.fst[:7], g.fst[:7])
     pylab.xlabel('g/g\'')
     pylab.ylabel('Correctly classified loci [%]')
@@ -214,22 +247,20 @@ if __name__ == '__main__':
     with open(OUTPUT_TWO_POP_SVM_WIN,'r') as fp: g=cPickle.load(fp)
     success=np.asarray(g.success)
     for i in range(6):
-        pylab.semilogx(g.fst[:8], success[i*8:(i+1)*8,0], '-o')
+        pylab.semilogx(g.fst[:8], success[i*8:(i+1)*8,0], '-o', linewidth=.5, markersize=5)
     pylab.xticks(g.fst[:8], g.fst[:8])
     pylab.xlabel('Window size')
     pylab.axis([9, 5050, 50, 100])
     pylab.legend(['-'.join(g.files[i]) for i in [0,8,16,24,32,40]], 4, ncol=2)
-    pylab.subplots_adjust(left=.075, bottom=.08, right=.99, top=.97, hspace=.16, wspace=.1)
-    pylab.savefig('fig4.'+FILETYPE,format=FILETYPE) 
-
-
+    pylab.subplots_adjust(left=.078, bottom=.08, right=.97, top=.97, hspace=.18, wspace=.1)
+    pylab.savefig('fig3.'+FILETYPE,format=FILETYPE) 
 
     ################################
-    # Figure 2 - all chroms and supplemental structure plot
+    # Supplemental Figure 1 - Structure+all chroms
     ################################
-    pylab.figure(figsize=(3.42, 1.14))
+    pylab.figure(figsize=(8.8, 10.8))
     ####### STRUCTURE PLOT ############x##
-    pylab.axes([.05,.1, .9, .8])
+    pylab.axes([.1,.85, .8, .1])
     names=np.asarray([l.strip().split() for l in open('data/qatar_admix_q')])
     alphas=names[:,1:].astype(np.float)
     names=names[:,0]
@@ -238,13 +269,10 @@ if __name__ == '__main__':
     pylab.bar(np.arange(156), alphas[idx,1], width=1, bottom=alphas[idx,0], linewidth=0,color='g')
     pylab.bar(np.arange(156), alphas[idx,2], width=1, bottom=alphas[idx,:2].sum(1), linewidth=0, color='r')
     pylab.axis([-0.2, 156.2, 0, 1]); 
-    pylab.yticks([]), pylab.xticks([])
-    pylab.savefig('supplemental_fig1.'+FILETYPE,format=FILETYPE) 
-
-
+    pylab.yticks(np.linspace(0,1,6)), pylab.xticks([])
+    pylab.ylabel('STRUCTURE ancestry', rotation='vertical', fontsize=7)
     ####### SupportMix Plots ############x##    
-    pylab.figure(figsize=(3.42, 10))
-    startPos=.02
+    startPos=.05
     hSpace=0.001
     for i in [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,19,20,21,22]:
         CHR='chr%i' %i
@@ -261,15 +289,17 @@ if __name__ == '__main__':
                 vals[i,j,:]=colors[admClass[i,j]]
         vals=vals/255.
         #print startPos
-        pylab.axes([.12, startPos, .85, .9*admClass.shape[0]/710.])
-        startPos+=.9*admClass.shape[0]/710.+hSpace
-        print admClass.shape[0]
+        pylab.axes([.1, startPos, .8, .77*admClass.shape[0]/710.])
+        startPos+=.77*admClass.shape[0]/710.+hSpace
         vals[:,:,3]=p**.2
         pylab.imshow(vals[:,idx,:], interpolation='nearest')
         pylab.axis('tight'); pylab.draw(); 
         pylab.xticks([]); pylab.yticks([])
         pylab.ylabel(CHR, rotation='horizontal')
-    pylab.savefig('fig2.'+FILETYPE,format=FILETYPE) 
+        if CHR=='chr1':
+            pylab.xlabel('Qatari individuals')
+    pylab.text(-28, 450, 'SupportMix ancestry assignment across chromosomes', rotation='vertical', fontsize=8)
+    pylab.savefig('supplemental_fig1.'+FILETYPE,format=FILETYPE) 
 
 
     # ################################
@@ -285,6 +315,7 @@ if __name__ == '__main__':
     pylab.plot(svm3[1].fst, np.asarray(svm3[1].success)[:,0], '.r')
     pylab.axis([0, 0.10, 50, 100])
     pylab.xlabel('Fst')
+    pylab.ylabel('Correctly classified loci [%]')
     ######### HGDP SupportMix alpha ################
     pylab.subplot(1,2,2)
     with open(OUTPUT_TWO_POP_SVM_ALPHA,'r') as fp: alphas=cPickle.load(fp)
@@ -297,7 +328,7 @@ if __name__ == '__main__':
     pylab.ylim(50, 100)
     pylab.xlabel('Ancestry fraction')
     pylab.xlim(0.08, .52)
-    pylab.subplots_adjust(left=.05, bottom=.15, right=.98, top=.95, hspace=.1)
+    pylab.subplots_adjust(left=.078, bottom=.09, right=.97, top=.97, wspace=.1)
     pylab.savefig('supplemental_fig2.'+FILETYPE,format=FILETYPE) 
     ######### Effects of Phasing ###################
     # pylab.subplot(1,3,3)
@@ -316,7 +347,6 @@ if __name__ == '__main__':
     # pylab.legend(['-'.join(alphas.files[i]) for i in [0,5,10,15,20,25]], 3)
 
     
-
 
 
 
