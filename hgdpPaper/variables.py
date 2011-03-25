@@ -7,15 +7,17 @@ FILE2ADMPOPS='data/hgdp2/admixed_hgdp_%s_%s.'+CHR+'.csv'
 FILE2ADMPOPSORIGIN='data/hgdp2/admixed_origin_hgdp_%s_%s.'+CHR+'.csv'
 FILE3ADMPOPSCEUYRI='data/hgdp3/admixed_hgdp_yoruba_french_%s.'+CHR+'.csv'
 FILE3ADMPOPSCEUYRIORIGIN='data/hgdp3/admixed_hgdp_origin_yoruba_french_%s.'+CHR+'.csv'
-FILE3ADMPOPSHANJPN='data/hgdp3/admixed_hgdp_han_japanese_%s.'+CHR+'.csv'
-FILE3ADMPOPSHANJPNORIGIN='data/hgdp3/admixed_hgdp_origin_han_japanese_%s.'+CHR+'.csv'
+FILE3ADMPOPSYORBED='data/hgdp3/admixed_hgdp_yoruba_bedouin_%s.'+CHR+'.csv'
+FILE3ADMPOPSYORBEDORIGIN='data/hgdp3/admixed_hgdp_origin_yoruba_bedouin_%s.'+CHR+'.csv'
 FILEGENSADMIX='data/hgdp_generations/admixed_hgdp_%s_%s_%ggens.'+CHR+'.csv'
 FILEGENSADMIXORIGIN='data/hgdp_generations/admixed_origin_hgdp_%s_%s_%ggens.'+CHR+'.csv'
 FILEALPHAADMIX='data/hgdp_alpha/admixed_hgdp_%s_%s_%ggens_%galpha.'+CHR+'.csv'
 FILEALPHAADMIXORIGIN='data/hgdp_alpha/admixed_origin_hgdp_%s_%s_%ggens_%galpha.'+CHR+'.csv'
 SAMPLEGENERATIONS=[1,5,10,50,100,200]
 ALPHAS=[0.1, 0.2, 0.3, 0.4, 0.5]
-POPS=['yoruba', 'french', 'han', 'bedouin']
+POPS=[('french', 'bedouin'), ('bedouin', 'yoruba'), ('han', 'bedouin'),    
+      ('french', 'yoruba'), ('han', 'yoruba'), ('papuan', 'yoruba'), ('papuan', 'karitiana')]
+
 NOFFSPRING=2
 NGENS=5
 
