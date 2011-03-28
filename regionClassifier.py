@@ -1,7 +1,7 @@
 """Region Classifier is a module with different classifiers for
 genotype and haplotype classifiers.  Primarily based on support vector
 machines (SVM)."""
-import PyML, numpy as np
+import numpy as np
 from  hmm import hmm
 import mvpa.suite as pymvpa
 
@@ -16,45 +16,6 @@ class regionClassifier:
         """
         abstract()
     
-class SVMpyml2(regionClassifier):
-    def __init__(self, C=100):
-        """SVM classifier for to classes using PyML
-        Arguments:
-        - `C`: Penalty term for missclassified samples in SVM
-        """
-        self.svm=PyML.SVM(C=C, optimizer='mysmo')
-
-    def _createSVMData(self, vals, labels):
-        """Given array and labels creates PyML with normalization and  Kernel"""
-        dataPyML=PyML.VectorDataSet(vals, L=labels)
-        dataPyML.normalize(1)
-        #dataPyML.attachKernel('polynomial', degree = 1)
-        dataPyML.attachKernel('linear')
-        return dataPyML
-
-
-    def __call__(self, valsTrain, labelsTrain, valsTest, doAncestralCV=True):
-        """Trains on ancestral population followed by testing on
-        admixed population.  Optionally does cross validation on
-        ancestral population.
-        
-        Arguments:
-        - `valsTrain`: numpy array (nSamplesxnFeatures) of trainig samples 
-        - `labelsTrain`: list of nSamples labels
-        - `valsTest`:  numpy array of (nSamples2xnFeatures) of test samples
-        """
-        haplotypeData=self._createSVMData(valsTrain, labelsTrain)
-        #train on ancestral populations
-        self.svm.train(haplotypeData);
-        #classify admixed population
-        testData=self._createSVMData(valsTest,[1]*valsTest.shape[0])
-        admixedClass = [self.svm.classify(testData,i)[0] for i in range(valsTest.shape[0])]
-        if doAncestrallCV:
-            results=self.svm.cv(haplotypeData, 3);
-            ancestralSuccess = results.getBalancedSuccessRate()
-            return ancestralSuccess, admixedClass
-        return  admixedClass
-
 class SVMpymvpa(regionClassifier):
 
     def __init__(self, C=100):
