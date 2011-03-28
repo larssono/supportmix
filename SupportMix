@@ -1,3 +1,4 @@
+#!/usr/bin/python
 import fileReader, regionClassifier, sys, gzip,  pylab, numpy as np
 from optparse import OptionParser
 
