@@ -1,8 +1,45 @@
 #!/usr/bin/python
-import fileReader, regionClassifier, sys, gzip,  pylab, numpy as np
+import fileReader
+import regionClassifier
+import sys
+import gzip
+import pylab
+import numpy as np
 from optparse import OptionParser
 
-MAPFILES='/'.join(__file__.split('/')[:-1])+'/../../human_genome_data/hapmap2/genetic_map_%s_b36.txt'
+
+### TRYING SCIPY COMPILE WORKAROUND
+
+import scipy.misc
+import scipy
+scipy.factorial = scipy.misc.common.factorial
+
+from scipy import factorial
+import scipy.signal
+
+###  TRYING to FIX another matplot dependency
+import matplotlib.backends.backend_tkagg
+
+import os
+import matplotlib
+#matplotlib.rcParams['datapath'] = 'mpl-data'
+####################################
+
+
+#MAPFILES='/'.join(__file__.split('/')[:-1])+'/home/local/CB/fja32/human_genome_data/hapmap2/genetic_map_%s_b36.txt'
+#MAPFILES='/home/local/CB/fja32/human_genome_data/hapmap2/genetic_map_%s_b36.txt'
+MAPFILES_BASENAME='genetic_map_%s_b36.txt'
+MAPFILES_BASEDIR='human_genome_data/hapmap2'
+
+#MAPFILES=os.path.join(os.environ['HOME'],MAPFILES_BASEDIR)
+if os.path.isdir(os.path.join(os.environ['HOME'],MAPFILES_BASEDIR)):
+    
+    MAPFILES=os.path.join(os.environ['HOME'],MAPFILES_BASEDIR,MAPFILES_BASENAME)
+else:
+    MAPFILES=os.path.join(MAPFILES_BASEDIR,MAPFILES_BASENAME)
+    
+#MAPFILES=os.path.join(os.environ['HOME'],'human_genome_data/hapmap2/genetic_map_%s_b36.txt')
+
 USAGE="""%prog [options] ancestralFile1 ancestralFile2 [...] admixedFile
 
 where the ancestralFiles and admixedFiles are contain phased samples
@@ -143,4 +180,4 @@ if __name__ == '__main__':
         pylab.imshow(correct[:, :].T, interpolation='nearest', cmap=pylab.cm.copper)
         pylab.ylabel('Sample');pylab.yticks([]); pylab.xticks([])
         pylab.xlabel('Position along %s' %chrom);  pylab.axis('tight'); pylab.title('True ancestry')
-    # pylab.show()
+    pylab.show()
