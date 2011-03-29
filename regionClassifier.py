@@ -40,9 +40,8 @@ class SVMpymvpa(regionClassifier):
         #Create and normalize data
         ds=pymvpa.Dataset(valsTrain)
         ds.sa['targets']=labelsTrain
-        runtype=np.zeros(valsTrain.shape[0]); runtype[::2]=1
+        runtype=np.zeros(valsTrain.shape[0]); runtype[0::3]=0;runtype[1::3]=1; runtype[2::3]=2 
         ds.sa['runtype']=runtype
-        #pymvpa.zscore(ds, param_est=('targets', [1])) #Normalize somehow
         try:     #Train on ancestral
             self.classifier.train(ds)
             admixedClass=self.classifier.predict(valsTest)
@@ -53,7 +52,7 @@ class SVMpymvpa(regionClassifier):
                 return 1./len(np.unique(labelsTrain)), admixedClass  #Assign success to create equal 
             return admixedClass
         if doAncestralCV:          #Cross Validated ancestral population
-            hspl = pymvpa.HalfPartitioner(attr='runtype')
+            hspl=pymvpa.NGroupPartitioner(3, attr='runtype')
             cvte = pymvpa.CrossValidation(self.classifier, hspl)
             cv_results=cvte(ds)
             ancestralSuccess=1-np.mean(cv_results)
