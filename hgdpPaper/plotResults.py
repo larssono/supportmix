@@ -152,7 +152,8 @@ if __name__ == '__main__':
                         horizontalalignment='center', verticalalignment='top', fontsize=8 )
         pylab.xticks(np.arange(len(selectedPop))+.45, selectedLab, rotation=90)
         pylab.text(0.03, 1.02, ['A', 'B', 'C'][i], transform = ax.transAxes, horizontalalignment='right', fontsize=12)
-    pylab.subplots_adjust(left=.07, bottom=.28, right=.98, top=.9, hspace=.01)
+        pylab.title(['Qatar1', 'Qatar2', 'Qatar3'][i], fontsize=10)
+    pylab.subplots_adjust(left=.07, bottom=.28, right=.98, top=.89, hspace=.01)
     pylab.savefig('fig2.'+FILETYPE,format=FILETYPE) 
     ################################
     # Summary Output
@@ -192,59 +193,63 @@ if __name__ == '__main__':
                     fp.write( '\cline{2-5} '+ str+'\\\\ \hline \hline \n')
                 else:
                     fp.write(str+'\\\\ \n ')
-        
 
     ################################
     # Figure 3: Simulation results
     ################################
-    pylab.figure(figsize=(7.08,4.5))
+    pylab.figure(figsize=(7.08,2.6))
     ######### HGDP SupportMix v Lamp ################
-    ax=pylab.subplot(2,2,1)
+    ax=pylab.subplot(1,4,1)
     with open(OUTPUT_TWO_POP_SVM, 'r') as fp:  svm2=cPickle.load(fp)
     with open(OUTPUT_TWO_POP_LAMP, 'r') as fp: lamp=cPickle.load(fp)
     fst=np.asarray(svm2.fst)
     success=np.asarray(svm2.success)[:,0]
     pylab.plot(fst, success, '.b')
-    pylab.plot(lamp.fst, np.asarray(lamp.success)[:,0], 'ro')
+    pylab.plot(lamp.fst, np.asarray(lamp.success)[:,0], 'ro', markersize=4)
     for files in lamp.files:
         i=pylab.find([files==s for s in svm2.files])
-        pylab.scatter(fst[i], success[i], s=30, facecolors='none', edgecolors='r', linewidths=1, zorder=10)
-    pylab.axis([0, 0.25, 50, 100])
+        pylab.scatter(fst[i], success[i], s=20, facecolors='none', edgecolors='r', linewidths=1, zorder=10)
+    pylab.axis([0, 0.24, 50, 100.5])
+    pylab.xticks([0, 0.05, 0.10, 0.15, 0.20], fontsize=6)
     pylab.xlabel('Fst')
     pylab.ylabel('Correctly classified loci [%]')
-    pylab.text(0.03, 1.02, 'A', transform = ax.transAxes, horizontalalignment='right', fontsize=12)
+    pylab.text(0.07, 1.02, 'A', transform = ax.transAxes, horizontalalignment='right', fontsize=12)
     ######### HGDP Generations ################
-    ax=pylab.subplot(2,2,2)    
+    ax=pylab.subplot(1,4,2)    
     with open(OUTPUT_TWO_POP_SVM_GENS,'r') as fp: gens=cPickle.load(fp)
     success=np.asarray(gens.success)
-    pylab.semilogx(gens.fst[:6], success.reshape((7,6,2))[:,:,0].T, '-o', linewidth=.5, markersize=5)
-    pylab.xticks(gens.fst[:6], gens.fst[:6]); pylab.yticks(range(50,101,10), [])
-    pylab.xlim(-4,210)
+    pylab.semilogx(gens.fst[:6], success.reshape((7,6,2))[:,:,0].T, '-o', linewidth=.5, markersize=3)
+    pylab.axis([0.9,280, 50, 100.5])
+    pylab.xticks(gens.fst[:6], gens.fst[:6], fontsize=6); pylab.yticks(range(50,101,10), [])
     pylab.xlabel('Generations since admixture')
-    pylab.text(0.03, 1.02, 'B', transform = ax.transAxes, horizontalalignment='right', fontsize=12)
+    pylab.text(0.07, 1.02, 'B', transform = ax.transAxes, horizontalalignment='right', fontsize=12)
     ######### HGDP Wrong g ################
-    ax=pylab.subplot(2,2,3)
+    ax=pylab.subplot(1,4,3)
     with open(OUTPUT_TWO_POP_SVM_DELTA_GENS,'r') as fp: g=cPickle.load(fp)
     success=np.asarray(g.success)
     for i in range(7):
-        pylab.semilogx(g.fst[:7], success[i*7:(i+1)*7,0], '-o', linewidth=.5, markersize=5)
-    pylab.xticks(g.fst[:7], g.fst[:7])
+        pylab.semilogx(g.fst[:7], success[i*7:(i+1)*7,0], '-o', linewidth=.5, markersize=3)
+    pylab.axis([0.041,23, 50, 100.5])
+    pylab.xticks(g.fst[:7], ['%g' %l for l in g.fst[:7]], fontsize=6)
     pylab.xlabel('g/g\'')
-    pylab.ylabel('Correctly classified loci [%]')
-    pylab.axis([0.045, 21, 50, 100])
-    pylab.text(0.03, 1.02, 'C', transform = ax.transAxes, horizontalalignment='right', fontsize=12)
+    #pylab.ylabel('Correctly classified loci [%]')
+    pylab.yticks(range(50,101,10), [])
+    pylab.text(0.07, 1.02, 'C', transform = ax.transAxes, horizontalalignment='right', fontsize=12)
     ######### HGDP WinSize ################
-    ax=pylab.subplot(2,2,4)
+    ax=pylab.subplot(1,4,4)
     with open(OUTPUT_TWO_POP_SVM_WIN,'r') as fp: g=cPickle.load(fp)
     success=np.asarray(g.success)
+    lines=[]; labels=[]
     for i in range(7):
-        pylab.semilogx(g.fst[:8], success[i*8:(i+1)*8,0], '-o', linewidth=.5, markersize=5)
-    pylab.xticks(g.fst[:8], g.fst[:8]); pylab.yticks(range(50,101,10), [])
+        l=pylab.semilogx(g.fst[:8], success[i*8:(i+1)*8,0], '-o', linewidth=.5, markersize=3)
+        lines.append(l)
+        labels.append('-'.join([l.capitalize() for l in  g.files[i*8]]))
+    pylab.axis([8.5, 5500, 50, 100.5])
+    pylab.xticks(np.take(g.fst, [0,1,2,3,4,6,7]), np.take(g.fst, [0,1,2,3,4,6]), fontsize=6); pylab.yticks(range(50,101,10), [])
     pylab.xlabel('Window size [# SNPs]')
-    pylab.axis([9, 5050, 50, 100])
-    pylab.legend(['-'.join([l.capitalize() for l in g.files[i]]) for i in [0,8,16,24,32,40,48]], 4, ncol=2)
-    pylab.subplots_adjust(left=.078, bottom=.09, right=.97, top=.93, hspace=.19, wspace=.1)
-    pylab.text(0.03, 1.02, 'D', transform = ax.transAxes, horizontalalignment='right', fontsize=12)
+    pylab.figlegend(lines, labels, "lower right", ncol=4, numpoints=1, borderaxespad=1)
+    pylab.subplots_adjust(left=.078, bottom=.3, right=.98, top=.9, hspace=.19, wspace=.05)
+    pylab.text(0.07, 1.02, 'D', transform = ax.transAxes, horizontalalignment='right', fontsize=12)
     pylab.savefig('fig3.'+FILETYPE,format=FILETYPE) 
 
     ################################
@@ -298,7 +303,7 @@ if __name__ == '__main__':
     pylab.axis([0, 0.08, 50, 100])
     pylab.xlabel('Fst')
     pylab.ylabel('Correctly classified loci [%]')
-    pylab.legend(['Yoruba-French-other', 'Yoruba-Bedouin-other'], 4)
+    pylab.legend(['Yoruba-French-other', 'Yoruba-Bedouin-other'], 4, numpoints=1)
     pylab.text(0.0, 1.02, 'A', transform = ax.transAxes, horizontalalignment='right', fontsize=12)
     ######### HGDP SupportMix alpha ################
     ax=pylab.subplot(1,2,2)
@@ -308,7 +313,7 @@ if __name__ == '__main__':
     for i in range(6):
         pylab.errorbar(alphas.fst[:5], success[i*5:(i+1)*5,0], success[i*5:(i+1)*5,1], fmt=None, ecolor='k')
     pylab.xticks(alphas.fst[:5], alphas.fst[:5])
-    pylab.legend(['-'.join(alphas.files[i]) for i in [0,5,10,15,20,25,30]], 3)
+    pylab.legend(['-'.join([l.capitalize() for l in alphas.files[i]]) for i in [0,5,10,15,20,25,30]], 4, ncol=2, numpoints=1)
     pylab.ylim(50, 100); pylab.yticks(range(50,101, 10), [])
     pylab.xlabel('Ancestry fraction')
     pylab.xlim(0.08, .52)
@@ -316,8 +321,6 @@ if __name__ == '__main__':
     pylab.subplots_adjust(left=.078, bottom=.1, right=.97, top=.92, wspace=.1)
     pylab.savefig('supplemental_fig2.'+FILETYPE,format=FILETYPE) 
     
-
-
     ################################
     # Supplemental Figure 3 - Simulated Qatari
     ################################
@@ -331,8 +334,6 @@ if __name__ == '__main__':
         for j in range(nsimQatarSubs):
             simQatarColors[j,i,:]=colors[int(simQatarAncestry[i,j])]
     simQatarColors=simQatarColors/255.
-
-
     simQatarCorrect=np.asarray([l.strip().split('\t')[2:] for l in fileReader.openfile('data/hgdp3/admixed_hgdp_origin_yoruba_bedouin_brahui.chr1.csv.gz').readlines()[1:]], np.int)
     simQatarCorrect[simQatarCorrect==0]=np.nonzero(simQatarPops==['yoruba'])[0][0]
     simQatarCorrect[simQatarCorrect==1]=np.nonzero(simQatarPops==['bedouin'])[0][0]
@@ -343,12 +344,10 @@ if __name__ == '__main__':
         for j in range(nsimQatarSubs):
             simQatarCorrectColors[j,i,:]=colors[int(simQatarCorrect[i,j])]
     simQatarCorrectColors=simQatarCorrectColors/255.
-
     comparison=np.repeat(simQatarAncestry, 400, 0)[:nsimQatarWins,:]
     success=100*(comparison==simQatarCorrect).sum(0)/float(nsimQatarWins)
     print 'Correct %0.3g +/- %0.2g' %(np.mean(success), np.std(success))
-
-    pylab.figure(figsize=(8.8, 2.8))
+    pylab.figure(figsize=(7.08, 2.8))
     pylab.axes([.1, .52, .75, .38 ])
     pylab.imshow(simQatarColors, interpolation='nearest')
     pylab.axis('tight'); pylab.draw(); 
@@ -371,9 +370,6 @@ if __name__ == '__main__':
         y+=1;
     pylab.axis([-0.5, 8, -.3, 15.3])
     pylab.axis('off')
-
-
-
     pylab.savefig('supplemental_fig3.'+FILETYPE,format=FILETYPE) 
 
     pylab.show()
