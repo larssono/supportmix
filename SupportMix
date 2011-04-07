@@ -9,6 +9,7 @@ from optparse import OptionParser
 
 
 ### TRYING SCIPY COMPILE WORKAROUND
+#---  SCIPY cxFreeze dependency fixes
 
 import scipy.misc
 import scipy
@@ -17,17 +18,15 @@ scipy.factorial = scipy.misc.common.factorial
 from scipy import factorial
 import scipy.signal
 
-###  TRYING to FIX another matplot dependency
+#---  matplotlib cxFreeze dependency fixes
 import matplotlib.backends.backend_tkagg
 
 import os
 import matplotlib
-#matplotlib.rcParams['datapath'] = 'mpl-data'
+
 ####################################
 
 
-#MAPFILES='/'.join(__file__.split('/')[:-1])+'/home/local/CB/fja32/human_genome_data/hapmap2/genetic_map_%s_b36.txt'
-#MAPFILES='/home/local/CB/fja32/human_genome_data/hapmap2/genetic_map_%s_b36.txt'
 MAPFILES_BASENAME='genetic_map_%s_b36.txt'
 MAPFILES_BASEDIR='human_genome_data/hapmap2'
 
@@ -42,7 +41,7 @@ else:
 
 USAGE="""%prog [options] ancestralFile1 ancestralFile2 [...] admixedFile
 
-where the ancestralFiles and admixedFiles are contain phased samples
+where the ancestralFiles and admixedFiles are contain phased samplesdetermineChromosomedetermineChromosome
 in tab delimited format snps in rows and samples in columns.  One row
 of column headers and two columns of header information (i.e. rsId and
 position).  The files have to be from the same chromosome indicated by
@@ -60,7 +59,7 @@ def determineChromosome(fileNames):
     """Estimates the chromosome name by searching for "chr" in input
     file names.
     Arguments:
-    - `fileNames`:List of fileNames 
+    - @fileNames:List of fileNames 
     """
     import re 
     p = re.compile('chr\d*', re.IGNORECASE)
@@ -79,9 +78,10 @@ def runSVM(fileNames, nGens=6, svmC=100, win_size=100):
     - `fileNames`: list of fileNames
     - `nGens`: Number of generations since admixture used in hmm filter (default=6)
     - `svmC`: missclassification penalty term in svm (default=100)
-    - `win_size`: number of snps in each window (defualt=100)
+    - `win_size`: number of snps in each window (default=100)
 
     Returns:
+    - `snpNames`: list of snpIds    
     - `snpLocations`: list of positions in bp
     - `ancestralSuccess`: success of cross validation in ancestral populations
     - `admixedClassPre`: classification of admixed samples before hmm filter
@@ -89,6 +89,7 @@ def runSVM(fileNames, nGens=6, svmC=100, win_size=100):
     """
     files=fileReader.concurrentFileReader(*fileNames, key=1)
     chrom=determineChromosome(fileNames)
+    snpNames=[]
     snpLocations=[]     #stores physical location from files
     ancestralSuccess=[] #stores success of ancestral classification
     admixedClass=[]     #stores classification of test Subjects
@@ -102,6 +103,7 @@ def runSVM(fileNames, nGens=6, svmC=100, win_size=100):
     vals=np.zeros((nTrain+nTest, win_size))  #temporary storage of output
     while True: #for j in range(100): #To go through all positions in file
         for i, (snpName, snpLocation, snps) in enumerate(files):
+            snpNames.append(snpName)
             snpLocations.append(float(snpLocation))
             vals[:,i] = fileReader.nucleotides2Haplotypes(sum(snps, []))
             if i==vals.shape[1]-1:
@@ -113,8 +115,9 @@ def runSVM(fileNames, nGens=6, svmC=100, win_size=100):
             break
     admixedClassPre=np.array(admixedClass)
     admixedClass, p=smoother(snpLocations, ancestralSuccess, admixedClassPre)
+    
+    return subjects[-1], snpNames, snpLocations, ancestralSuccess, admixedClassPre, admixedClass, p
 
-    return snpLocations, ancestralSuccess, admixedClassPre, admixedClass, p
 
 
 if __name__ == '__main__':
@@ -131,7 +134,7 @@ if __name__ == '__main__':
     (options, args) = parser.parse_args()
 
     fileNames=args
-    snpLocations, ancestralSuccess, admixedClassPre, admixedClass,p = runSVM(fileNames, 
+    subjects,snpNames, snpLocations, ancestralSuccess, admixedClassPre, admixedClass,p = runSVM(fileNames, 
                                                                            nGens=options.nGens, 
                                                                            win_size=options.win)
     for i, pop in enumerate(fileNames[:-1]):
@@ -154,14 +157,49 @@ if __name__ == '__main__':
 
     if options.saveFile:
         fp=open(options.saveFile, 'w')  #Save output to file
+        
+        tPedFp=open(options.saveFile+".tped","w")
+        tPedProbFp=open(options.saveFile+".Probs.tped","w")
+        tFamFp=open(options.saveFile+".tfam","w")
+        
         starts=snpLocations[::options.win]
-        fp.write('Chrom\t Position\t AncestralSuccess\t AdmixedClass\n')
+        #fp.write('Chrom\t Position\t AncestralSuccess\t AdmixedClass\n')
+        fp.write('snp\tChrom\t Position\t AncestralSuccess\t AdmixedClass\n')
+
+        pedPadding="0 %s 0 0 0 0 0"
+        
+        for subject in subjects:
+            tFamFp.write("%s\n"%pedPadding%subject)
+           
+
+
+
         for i in range(len(starts)):
-            fp.write('%s\t%s\t%s\t' %(chrom, starts[i], ancestralSuccess[i]))
+            #fp.write('%s\t%s\t%s\t' %(chrom, starts[i], ancestralSuccess[i]))
+            fp.write('%s\t%s\t%s\t%s\t' %(snpNames[i], chrom, starts[i], ancestralSuccess[i]))
             fp.write('\t'.join(np.asarray(admixedClass[i,:], np.str_)))
             fp.write('\n')
+            
+            admixedTypes=zip(admixedClass[i,:],admixedClass[i,:])
+            admixedTypes=" ".join(["%s %s"%x for x in  admixedTypes])
+            
+            probAdmixedTypes=zip(p[i,:],p[i,:])
+            probAdmixedTypes=" ".join(["%s %s"%x for x in  probAdmixedTypes])
+            
+            outMap=[chrom,snpNames[i],"0","%s"%int(starts[i])]
+            for i in range(options.win):
+                tPedFp.write("%s %s\n"%(" ".join(outMap), admixedTypes))
+                tPedProbFp.write("%s %s\n"%(" ".join(outMap), probAdmixedTypes))
+                
         fp.close()
+        tPedFp.close()
+        tFamFp.close()
 
+
+##############################
+#---- For internal use
+#     use for testing     
+############################## 
 
     if options.correctFile:
         correct=np.array([l.split()[2:] for l in fileReader.openfile(options.correctFile).readlines()[1:]], np.float)
@@ -180,4 +218,4 @@ if __name__ == '__main__':
         pylab.imshow(correct[:, :].T, interpolation='nearest', cmap=pylab.cm.copper)
         pylab.ylabel('Sample');pylab.yticks([]); pylab.xticks([])
         pylab.xlabel('Position along %s' %chrom);  pylab.axis('tight'); pylab.title('True ancestry')
-    pylab.show()
+#    pylab.show()

@@ -33,7 +33,7 @@ class SVMpymvpa(regionClassifier):
         ancestral population.
         
         Arguments:
-        - `valsTrain`: numpy array (nSamplesxnFeatures) of trainig samples 
+        - `valsTrain`: numpy array (nSamplesxnFeatures) of training samples 
         - `labelsTrain`: list of nSamples labels
         - `valsTest`:  numpy array of (nSamples2xnFeatures) of test samples
         """
@@ -61,9 +61,7 @@ class SVMpymvpa(regionClassifier):
 
 
 
-#------------------------------------------------------------
-# Post classfication Filtering
-#------------------------------------------------------------
+#--------------------- Post classification Filtering ---------------------------
 class globalFilter(object):
     """Given a region of classifiers filters based on some method"""
     def __init__(self):
@@ -74,15 +72,16 @@ class globalFilter(object):
         abstract()
         
 class hmmFilter(globalFilter):
-    """Uses hmm and transition probabilites to filter previously
+    """Uses hmm and transition probabilities to filter previously
     classified regions """
 
     def __init__(self, geneticMapFile, nGens, nClasses):
         """Constructor
         Arguments:
-        - `geneticMapFile`: file containing mapping from physical distance to genetic distance
+        - `geneticMapFile`: file containing mapping from physical distance 
+                            to genetic distance
         - `nGens`: number of generations since admixture
-        - `nClasses`: number of output classificiations
+        - `nClasses`: number of output classifications
         """
         self.gm=geneticMap(geneticMapFile)
         self.nGens=nGens
@@ -92,7 +91,7 @@ class hmmFilter(globalFilter):
         """Filters transitions based on hmm model 
         Arguments:
         - `snpLocations`: Locations of all the SNPs classified
-        - `successRate`:  Probabilities of succesfully classifying each snp
+        - `successRate`:  Probabilities of successfully classifying each snp
         - `admixedClass`: classification made
         """
         mapLocations=self.gm.pos2gm(snpLocations)
@@ -140,8 +139,8 @@ def abstract():
     raise NotImplementedError(caller + ' must be implemented in subclass')
 
 class geneticMap(object):
-    """keeps track of genetic Map locations and returns closests genetic map location 
-    given a snp location. """
+    """keeps track of genetic Map locations and returns closest genetic map 
+    location given a snp location. """
 
     def __init__(self,file ):
         """ """
