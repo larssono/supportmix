@@ -25,20 +25,8 @@ import os
 import matplotlib
 
 ####################################
-
-
 MAPFILES_BASENAME='genetic_map_%s_b36.txt'
-MAPFILES_BASEDIR='human_genome_data/hapmap2'
-
-#MAPFILES=os.path.join(os.environ['HOME'],MAPFILES_BASEDIR)
-if os.path.isdir(os.path.join(os.environ['HOME'],MAPFILES_BASEDIR)):
-    
-    MAPFILES=os.path.join(os.environ['HOME'],MAPFILES_BASEDIR,MAPFILES_BASENAME)
-else:
-    MAPFILES=os.path.join(MAPFILES_BASEDIR,MAPFILES_BASENAME)
-    
-#MAPFILES=os.path.join(os.environ['HOME'],'human_genome_data/hapmap2/genetic_map_%s_b36.txt')
-
+MAPFILES_BASEDIR='current_projects/human_genome_data/hapmap2'
 USAGE="""%prog [options] ancestralFile1 ancestralFile2 [...] admixedFile
 
 where the ancestralFiles and admixedFiles are contain phased samplesdetermineChromosomedetermineChromosome
@@ -47,6 +35,12 @@ of column headers and two columns of header information (i.e. rsId and
 position).  The files have to be from the same chromosome indicated by
 including chr[0-9]* in the name.
 """
+
+if os.path.isdir(os.path.join(os.environ['HOME'],MAPFILES_BASEDIR)):
+    MAPFILES=os.path.join(os.environ['HOME'],MAPFILES_BASEDIR,MAPFILES_BASENAME)
+else:
+    MAPFILES=os.path.join(MAPFILES_BASEDIR,MAPFILES_BASENAME)
+
 
 def winSizeBPandCM(snpLocations, winSize, chrom):
     chrom='chr%i'%chrom
@@ -81,11 +75,12 @@ def runSVM(fileNames, nGens=6, svmC=100, win_size=100):
     - `win_size`: number of snps in each window (default=100)
 
     Returns:
+    - `subjects`: list of subject names in admixed sample
     - `snpNames`: list of snpIds    
     - `snpLocations`: list of positions in bp
-    - `ancestralSuccess`: success of cross validation in ancestral populations
     - `admixedClassPre`: classification of admixed samples before hmm filter
     - `admixedClass`:    classification of admixed samples after hmm filter
+    - `p`: posterior probability of ancestry assignments
     """
     files=fileReader.concurrentFileReader(*fileNames, key=1)
     chrom=determineChromosome(fileNames)
@@ -116,7 +111,7 @@ def runSVM(fileNames, nGens=6, svmC=100, win_size=100):
     admixedClassPre=np.array(admixedClass)
     admixedClass, p=smoother(snpLocations, ancestralSuccess, admixedClassPre)
     
-    return subjects[-1], snpNames, snpLocations, ancestralSuccess, admixedClassPre, admixedClass, p
+    return subjects[-1], snpNames, snpLocations, admixedClassPre, admixedClass, p
 
 
 
@@ -134,64 +129,29 @@ if __name__ == '__main__':
     (options, args) = parser.parse_args()
 
     fileNames=args
-    subjects,snpNames, snpLocations, ancestralSuccess, admixedClassPre, admixedClass,p = runSVM(fileNames, 
-                                                                           nGens=options.nGens, 
-                                                                           win_size=options.win)
+    subjects,snpNames, snpLocations,  admixedClassPre, admixedClass,p = runSVM(fileNames, 
+                                                                               nGens=options.nGens, 
+                                                                               win_size=options.win)
     for i, pop in enumerate(fileNames[:-1]):
         pop=pop.split('/')[-1]
         print 'Pop %s: %2.2g' %(pop, 100*np.sum(admixedClass.flatten()==i)/float(np.prod(admixedClass.shape)))
 
     chrom=determineChromosome(fileNames)
-    pylab.subplot(2,1,1);
-    pylab.errorbar(range(len(ancestralSuccess)), map(np.mean, ancestralSuccess), map(np.std, ancestralSuccess))
-    pylab.xlim([0, len(ancestralSuccess)]); pylab.xticks([])
-    pylab.ylim([0,1]); pylab.ylabel('Success rate')
-    pylab.title('Ancestral Population Success Rate')
-    pylab.subplot(2,1,2);
-    pylab.imshow(admixedClass.T, interpolation='nearest', 
-                 cmap=pylab.cm.copper, vmin=0, vmax=2)
-    pylab.ylabel('Sample ');pylab.yticks([]); pylab.xticks([]); pylab.axis('tight'); 
-    pylab.xlabel('Position along %s' %chrom)
-    pylab.title('Admixed Classification')
-
-
+    nSubs=admixedClass.shape[1]
     if options.saveFile:
-        fp=open(options.saveFile, 'w')  #Save output to file
-        
+        with open(options.saveFile+".tfam","w") as tFamFp:
+            pedPadding="0 %s 0 0 0 0 0"        
+            for subject in subjects:
+                tFamFp.write("%s\n"%pedPadding%subject)
         tPedFp=open(options.saveFile+".tped","w")
         tPedProbFp=open(options.saveFile+".Probs.tped","w")
-        tFamFp=open(options.saveFile+".tfam","w")
-        
-        starts=snpLocations[::options.win]
-        #fp.write('Chrom\t Position\t AncestralSuccess\t AdmixedClass\n')
-        fp.write('snp\tChrom\t Position\t AncestralSuccess\t AdmixedClass\n')
-
-        pedPadding="0 %s 0 0 0 0 0"
-        
-        for subject in subjects:
-            tFamFp.write("%s\n"%pedPadding%subject)
-           
-
-
-
-        for i in range(len(starts)):
-            #fp.write('%s\t%s\t%s\t' %(chrom, starts[i], ancestralSuccess[i]))
-            fp.write('%s\t%s\t%s\t%s\t' %(snpNames[i], chrom, starts[i], ancestralSuccess[i]))
-            fp.write('\t'.join(np.asarray(admixedClass[i,:], np.str_)))
-            fp.write('\n')
-            
-            admixedTypes=zip(admixedClass[i,:],admixedClass[i,:])
-            admixedTypes=" ".join(["%s %s"%x for x in  admixedTypes])
-            
-            probAdmixedTypes=zip(p[i,:],p[i,:])
-            probAdmixedTypes=" ".join(["%s %s"%x for x in  probAdmixedTypes])
-            
-            outMap=[chrom,snpNames[i],"0","%s"%int(starts[i])]
-            for i in range(options.win):
-                tPedFp.write("%s %s\n"%(" ".join(outMap), admixedTypes))
-                tPedProbFp.write("%s %s\n"%(" ".join(outMap), probAdmixedTypes))
-                
-        fp.close()
+        for i, (rsId, rsPos) in enumerate(zip(snpNames, snpLocations)):
+            tPedFp.write('%s %s 0 %i' %(chrom, rsId, rsPos))
+            tPedFp.write(' %i'*nSubs %tuple(admixedClass[i/options.win, :]))
+            tPedFp.write('\n')
+            tPedProbFp.write('%s %s 0 %i' %(chrom, rsId, rsPos))
+            tPedProbFp.write(' %g'*nSubs %tuple(p[i/options.win, :]))
+            tPedProbFp.write('\n')
         tPedFp.close()
         tFamFp.close()
 
