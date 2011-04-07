@@ -64,7 +64,6 @@ def classify(fileNames, smoother, classifier=regionClassifier.SVMpymvpa(C), win_
     admixedClass, p=smoother(np.hstack(snpLocations), ancestralSuccess, admixedClassPre)
     return  admixedClassPre, admixedClass, p, subjects[-1], snpLocations, snpNames
 
-asfd
 
 if __name__ == '__main__':
     ####################################

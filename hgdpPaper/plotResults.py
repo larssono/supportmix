@@ -3,7 +3,7 @@ import cPickle, pylab, numpy as np
 from mpl_toolkits.basemap import Basemap
 import string, sys, fileReader
 
-FILETYPE='eps'
+FILETYPE='pdf'
 
 popLegend=['Palestinian','Bedouin','Druze','Makrani','Sindhi','Balochi','Brahui','Hazara','Pathan','Kalash','Burusho','Mozabite','Mandenka','Yoruba','Biaka Pygmies','Mbuti Pygmies',
 'Bantu N.E.','Bantu S.W. Ovambo','San','Bantu S.W. Herero','Bantu S.E. S.Sotho', 'Bantu S.E. Tswana','Bantu S.E. Zulu','Yakut',
@@ -58,13 +58,13 @@ if __name__ == '__main__':
     pylab.scatter(-Vt[0,idxQatar3], -Vt[1, idxQatar3], s=15, c=colors[idxQatar3,:], linewidths=.1, marker='d')
     pylab.xlabel('Principal component 1 (%0.2g%%)' %S[0])
     pylab.ylabel('Principal component 2 (%0.2g%%)' %S[1])
-    ax.annotate('q1', xy=(-Vt[0,981], -Vt[1, 981] ),  xycoords='data', xytext=(-30, 10), textcoords='offset points',arrowprops=dict(facecolor='black', shrink=0.1, width=1, headwidth=4), horizontalalignment='center', verticalalignment='top' )
-    ax.annotate('q2', xy=(-Vt[0,925], -Vt[1, 925] ),  xycoords='data', xytext=(-15, -20), textcoords='offset points',arrowprops=dict(facecolor='black', shrink=0.1, width=1, headwidth=4), horizontalalignment='center', verticalalignment='top' )
-    ax.annotate('q3', xy=(-Vt[0,1029], -Vt[1, 1029] ),  xycoords='data', xytext=(-30, 10), textcoords='offset points',arrowprops=dict(facecolor='black', shrink=0.1, width=1, headwidth=4), horizontalalignment='center', verticalalignment='top' )
+    ax.annotate('Q1', xy=(-Vt[0,981], -Vt[1, 981] ),  xycoords='data', xytext=(-30, 10), textcoords='offset points',arrowprops=dict(facecolor='black', shrink=0.1, width=1, headwidth=4), horizontalalignment='center', verticalalignment='top' )
+    ax.annotate('Q2', xy=(-Vt[0,925], -Vt[1, 925] ),  xycoords='data', xytext=(-15, -20), textcoords='offset points',arrowprops=dict(facecolor='black', shrink=0.1, width=1, headwidth=4), horizontalalignment='center', verticalalignment='top' )
+    ax.annotate('Q3', xy=(-Vt[0,1029], -Vt[1, 1029] ),  xycoords='data', xytext=(-30, 10), textcoords='offset points',arrowprops=dict(facecolor='black', shrink=0.1, width=1, headwidth=4), horizontalalignment='center', verticalalignment='top' )
     pylab.text(0.03, 1.02, 'A', transform = ax.transAxes, horizontalalignment='right', fontsize=12)
     ######### Map plot ################
     ax=pylab.axes([0.54, 0.51, 0.45, 0.45])
-    map = Basemap(llcrnrlon=-180,llcrnrlat=-70,urcrnrlon=180,urcrnrlat=70, projection='merc',lat_ts=20, resolution = 'l',area_thresh = 100000. )
+    map = Basemap(llcrnrlon=-20,llcrnrlat=-35,urcrnrlon=90,urcrnrlat=60, projection='merc',lat_ts=20, resolution = 'l',area_thresh = 100000. )
     map.drawcoastlines(linewidth=0.25)
     map.drawcountries(linewidth=0.05)
     map.fillcontinents(color='white',lake_color=[.9, .9, .9])
@@ -74,15 +74,16 @@ if __name__ == '__main__':
     # compute the native map projection coordinates for cities.
     xc,yc = map(lons,lats)
     colors=np.asarray([POPCOLORS[l] for l in pops])/255.
-    # plot filled circles at the locations of the cities.
-    pylab.scatter(xc,yc,s=40, zorder=10, c=colors, linewidth=0)
+    # plot filled circles at the locations of the pops.
+    idxPopsonMap=(lons>-20) & (lons<90) & (lats>-35) & (lats<60)
+    pylab.scatter(xc[idxPopsonMap],yc[idxPopsonMap],s=40, zorder=10, c=colors[idxPopsonMap], linewidth=0)
     xQatar, yQatar=map(51.53333, 25.28667)
     pylab.scatter(xQatar,yQatar,s=40, zorder=10, c=np.asarray([POPCOLORS['Qatar1']])/255., linewidth=0)
     pylab.arrow(xQatar, yQatar, 3e6,-3e6, zorder=11, lw=.5)
     pylab.text(xQatar+3e6, yQatar-3.1e6, 'Qatar', horizontalalignment='center', verticalalignment='top', fontsize=8)
     # for name,xpt,ypt in zip(pops,xc,yc):
     #     pylab.text(xpt+50000,ypt+50000,name,fontsize=9)
-    pylab.axis([17e6, 30e6, 6.5e6, 20e6])
+    #pylab.axis([17e6, 30e6, 6.5e6, 20e6])
     pylab.axis('off')
     pylab.subplots_adjust(left=.08, bottom=.02, right=.98, top=.98, hspace=.01)
     pylab.text(0.03, 1.02, 'B', transform = ax.transAxes, horizontalalignment='right', fontsize=12)
@@ -119,7 +120,7 @@ if __name__ == '__main__':
     ax=pylab.axes([.07, .03, .91, .06])
     pylab.axis([0, 312, 0, -10]); pylab.axis('off')
     pylab.text(156,0,  'Qatari individuals', horizontalalignment='center', fontsize=8)
-    for number, pos in [('q1',100),('q2',210),('q3',284)]:
+    for number, pos in [('Q1',100),('Q2',210),('Q3',284)]:
         ax.annotate(number, xy=(pos, -9.5),  xycoords='data',
                     xytext=(pos, -5), textcoords='data',
                     arrowprops=dict(facecolor='black', shrink=0.1, width=1, headwidth=4),
@@ -152,7 +153,7 @@ if __name__ == '__main__':
                         horizontalalignment='center', verticalalignment='top', fontsize=8 )
         pylab.xticks(np.arange(len(selectedPop))+.45, selectedLab, rotation=90)
         pylab.text(0.03, 1.02, ['A', 'B', 'C'][i], transform = ax.transAxes, horizontalalignment='right', fontsize=12)
-        pylab.title(['Qatar1', 'Qatar2', 'Qatar3'][i], fontsize=10)
+        pylab.title(['Arab-Qatari', 'Persian-Qatari', 'African-Qatari'][i], fontsize=10)
     pylab.subplots_adjust(left=.07, bottom=.28, right=.98, top=.89, hspace=.01)
     pylab.savefig('fig2.'+FILETYPE,format=FILETYPE) 
     ################################
@@ -283,7 +284,7 @@ if __name__ == '__main__':
     pylab.axis([-0.2, 156.2, 0, 1]); 
     pylab.yticks(np.linspace(0,1,6)), pylab.xticks([])
     pylab.text(-12.5, -.1, 'STRUCTURE ancestry', rotation='vertical', fontsize=8)
-    pylab.xticks([-.2, 51.5, 103.01, 119.5, 139, 147.5,  156], ['|','Qatar 1','|', 'Qatar 2', '|', 'Qatar 3', '|'])
+    pylab.xticks([-.2, 51.5, 103.01, 119.5, 139, 147.5,  156], ['|','Arab-Qatari','|', 'Persian-Qatari', '|', 'African-Qatari', '|'])
     pylab.xlabel('Individual genomes', fontsize=8)
 
     pylab.savefig('supplemental_fig1.'+FILETYPE,format=FILETYPE) 
@@ -344,7 +345,22 @@ if __name__ == '__main__':
         for j in range(nsimQatarSubs):
             simQatarCorrectColors[j,i,:]=colors[int(simQatarCorrect[i,j])]
     simQatarCorrectColors=simQatarCorrectColors/255.
-    comparison=np.repeat(simQatarAncestry, 400, 0)[:nsimQatarWins,:]
+    comparison=np.repeat(simQatarAncestry, 200, 0)[:nsimQatarWins,:]
+    success=100*(comparison==simQatarCorrect).sum(0)/float(nsimQatarWins)
+    print 'Correct %0.3g +/- %0.2g' %(np.mean(success), np.std(success))
+    #Convert to fuzzy correct
+    yoruba=pylab.find(simQatarPops==('yoruba'))[0]
+    for tmpPop in ['mandenka', 'bantu_n.e.', 'biaka_pygmies', 'mbuti_pygmies']:
+        val=pylab.find(simQatarPops==(tmpPop))[0]
+        comparison[comparison==val]=yoruba
+    bedouin=pylab.find(simQatarPops==('bedouin'))[0]
+    for tmpPop in ['druze','mozabite','palestinian']:
+        val=pylab.find(simQatarPops==(tmpPop))[0]
+        comparison[comparison==val]=bedouin
+    persian=pylab.find(simQatarPops==('brahui'))[0]
+    for tmpPop in [ 'balochi', 'hazara', 'kalash', 'makrani', 'pathan']:
+        val=pylab.find(simQatarPops==(tmpPop))[0]
+        comparison[comparison==val]=persian
     success=100*(comparison==simQatarCorrect).sum(0)/float(nsimQatarWins)
     print 'Correct %0.3g +/- %0.2g' %(np.mean(success), np.std(success))
     pylab.figure(figsize=(7.08, 2.8))
