@@ -65,6 +65,20 @@ def determineChromosome(fileNames):
         print "ERROR: names of input files should contain the same chr[0-9]*"
         sys.exit()
 
+def accuracySummary(correctFile, admixedClass):
+    """If given a file with the correct classifications calculates the accuracy
+
+    Arguments:
+    - `correctFile`: File name of correct classifications
+    - `admClass`: 2D array of classificaitions
+    """
+    correct=np.array([l.split()[2:] for l in fileReader.openfile(correctFile).readlines()[1:]], np.float)
+    #Compare and find successRate
+    hmmClass=np.repeat(admixedClass, options.win, 0)[:len(correct),:]
+    hmmSuccess=100*(hmmClass==correct).sum(0)/float(len(correct))
+    print 'Correct %0.3g +/- %0.2g' %(np.mean(hmmSuccess), np.std(hmmSuccess))
+
+
 def runSVM(fileNames, nGens=6, svmC=100, win_size=100):
     """Deconvolves ancestry in last file based on ancestral
     populations in first files.
@@ -155,27 +169,5 @@ if __name__ == '__main__':
         tPedFp.close()
         tFamFp.close()
 
-
-##############################
-#---- For internal use
-#     use for testing     
-############################## 
-
     if options.correctFile:
-        correct=np.array([l.split()[2:] for l in fileReader.openfile(options.correctFile).readlines()[1:]], np.float)
-        #Compare and find successRate
-        svmClass=np.repeat(admixedClassPre, options.win, 0)[:len(correct),:]
-        hmmClass=np.repeat(admixedClass, options.win, 0)[:len(correct),:]
-        svmSuccess=100*(svmClass==correct).sum(0)/float(len(correct))
-        hmmSuccess=100*(hmmClass==correct).sum(0)/float(len(correct))
-        print 'Correct %0.3g +/- %0.2g (%0.3g +/- %0.2g)' %(np.mean(hmmSuccess), np.std(hmmSuccess), 
-                                                            np.mean(svmSuccess), np.std(svmSuccess))
-        pylab.figure();
-        pylab.subplot(2,1,1);
-        pylab.imshow(admixedClass.T, interpolation='nearest', cmap=pylab.cm.copper)
-        pylab.ylabel('Sample '); pylab.yticks([]); pylab.xticks([]); pylab.axis('tight'); pylab.title('Estimated Ancestry')
-        pylab.subplot(2,1,2);
-        pylab.imshow(correct[:, :].T, interpolation='nearest', cmap=pylab.cm.copper)
-        pylab.ylabel('Sample');pylab.yticks([]); pylab.xticks([])
-        pylab.xlabel('Position along %s' %chrom);  pylab.axis('tight'); pylab.title('True ancestry')
-#    pylab.show()
+        accuracySummary(options.correctFile, admixedClass)
