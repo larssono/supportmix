@@ -61,9 +61,9 @@ def determineChromosome(fileNames):
         sys.exit()
 
 
-def runSVM(fileNames, nGens, svmC, chrom, win_size=100):
+def runSVM(fileNames, nGens, win_size, chrom, svmC=100):
     """Deconvolves ancestry in last file based on ancestral
-    populations in first files.
+    populations in first files. TODO fix text to match parameters
     Arguments:
     - `fileNames`: list of fileNames
     - `nGens`: Number of generations since admixture used in hmm filter (default=6)
@@ -98,7 +98,7 @@ def runSVM(fileNames, nGens, svmC, chrom, win_size=100):
             vals[:,i] = fileReader.nucleotides2Haplotypes(sum(snps, []))
             if i==vals.shape[1]-1:
                 break
-        ancestral, admixed=classifier(vals[:nTrain,:i], labelsTrain, vals[-nTest:, :i])
+        ancestral, admixed=classifier(vals[:nTrain,:i+1], labelsTrain, vals[-nTest:, :i+1])
         ancestralSuccess.append(ancestral)
         admixedClass.append(admixed)
         if i<win_size-1:
@@ -254,9 +254,9 @@ if __name__ == '__main__':
         options.fileNames=glob.glob(HGDP_BASENAME%options.chrom)
         options.fileNames.extend(args)
     else: options.fileNames=args
-    subjects,snpNames, snpLocations,  admixedClassPre, admixedClass,p = runSVM(options.fileNames, options.nGens, 
-                                                                               options.win, options.chrom)
-    saveFiles(options, subjects, snpNames, snpLocations, admixedClass, p)
+    subs, snpNames, snpLocs, admixedClassPre, admixedClass,p = runSVM(options.fileNames, options.nGens, 
+                                                                      options.win, options.chrom)
+    saveFiles(options, subs, snpNames, snpLocs, admixedClass, p)
     #output results
     for i, pop in enumerate(options.fileNames[:-1]):
         pop=os.path.split(pop)[-1]
