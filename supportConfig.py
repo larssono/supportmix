@@ -39,13 +39,27 @@ def readConfig(configFile="SupportMix.cfg"):
 def getConfigOptions(configFile):
     
     config=readConfig(configFile)
-    
-    #print config
     configData={}
-    configData['chrom']=config.getint('parameters', 'chromosome')
-    configData['win']=config.getint('parameters','window')
-    configData['nGens']=config.getfloat('parameters','generations')
-    configData['saveFile']=config.get('parameters','saveFile')
+    
+    if config.has_option('parameters', 'chromosome'):
+        configData['chrom']=config.getint('parameters', 'chromosome')
+    else:
+        configData['chrom']=0
+    
+    if config.has_option('parameters', 'window'):
+        configData['win']=config.getint('parameters','window')
+    else:
+        configData['win']=100
+    
+    if config.has_option('parameters','generations'):
+        configData['nGens']=config.getfloat('parameters','generations')
+    else:
+        configData['nGens']=6.0
+        
+    if config.has_option('parameters','saveFile'):
+        configData['saveFile']=config.get('parameters','saveFile')
+    else:
+        configData['saveFile']='outSupportMix'
     
     #File related processing
     if config.has_section('data location'):
@@ -56,8 +70,10 @@ def getConfigOptions(configFile):
     #here we assume that all the files including the ancestry file are located 
     #in the data path
     #If the ancestry file's full path is specified the path will be used instead.
-    #Otherwise will try to locate the file in the data dir 
-     
+    #Otherwise will try to locate the file in the data dir
+    
+#    if config.has_option('parameters','ancestryFile'):
+    
     ancestryFile=config.get('parameters','ancestryFile')
     
     if os.path.exists(ancestryFile):
@@ -95,9 +111,27 @@ def getConfigOptions(configFile):
         raise ConfigParser.Error("Admixed population not defined")
     
     configData['fileNames']=fileNames
-
-
     
+    if config.has_section('plot options'):
+        #configData['doPlot']=config.getboolean('plot options', 'plot')
+        
+        if config.has_option('plot options', 'plot'):
+            configData['doPlot']=config.get('plot options', 'plot')
+        else:
+            configData['doPlot']=None
+        
+        if config.has_option('plot options', 'RGB'):
+            configData['RGB']=config.get('plot options', 'RGB')
+            configData['doPlot']=True
+        else:
+            configData['RGB']=None
+        
+        if config.has_option('plot options', 'labels'):
+            configData['labels']=config.get('plot options', 'labels')
+            configData['doPlot']=True
+        else:
+            configData['labels']=None
+        
     return configData
     
 

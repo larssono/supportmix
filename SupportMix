@@ -204,6 +204,22 @@ def optColorProcessor(option, opt_str, value, parser):
         parser.values.doPlot=True
     except:
         raise OptionValueError('color specification to %s incorrect' %opt_str)
+#def optColorProcessor(option, opt_str, value, parser):
+#    conv=pylab.mpl.colors.ColorConverter()
+#    try: 
+#        parser.values.rgb=validateColors(value)
+#        parser.values.doPlot=True
+#    except:
+#        raise OptionValueError('color specification to %s incorrect' %opt_str)
+
+
+def validateColors(value):
+    conv=pylab.mpl.colors.ColorConverter()
+    values=[conv.to_rgba(c) for c in value.split(',')]
+    return values
+#    except:
+#        raise OptionValueError('color specification to %s incorrect' %"RGB")
+
 
 def optLabelProcessor(option, opt_str, value, parser):
     try: 
@@ -212,6 +228,29 @@ def optLabelProcessor(option, opt_str, value, parser):
 
     except:
         raise OptionValueError('label specification to %s incorrect' %opt_str)
+
+#def optConfigFileProcessor(option, opt_str, value, parser):
+#    print "Calling Processor"
+#    print "Running with options listed in:", os.path.abspath(value)
+#    #print "Values",parser.values
+#    configData=supportConfig.getConfigOptions(value)
+#    #for key in configData:
+#    #    parser.values[key]=configData[key]
+#    #print "New Values",parser.values
+#    parser.values.chrom=configData['chrom']
+#    parser.values.win=configData['win']
+#    parser.values.nGens=configData['nGens']
+#    parser.values.saveFile=configData['saveFile']
+#    parser.values.correctFile=configData['correctFile']
+#    parser.values.fileNames=configData['fileNames']
+#    parser.values.doPlot=configData['doPlot']
+#    
+#    if configData['labels']:
+#        parser.values.labels=configData['labels'].split(',')
+#        
+#    if configData['RGB']:
+#        parser.values.rgb=validateColors(configData['RGB'])
+    
 
 if __name__ == '__main__':
     parser = OptionParser(usage=USAGE)
@@ -227,6 +266,8 @@ if __name__ == '__main__':
                       help='FILE contains correct classifications in tab delimited format with SNPs in rows and samples in columns (first two columns contain rsID and position. ', metavar='FILE')
     parser.add_option('-C', '--config', type='string', dest='configFile',
                       help='Use a config file instead of parameters', metavar='file')
+#    parser.add_option('-C', '--config', type='string', dest='configFile', action='callback', callback=optConfigFileProcessor,
+#                      help='Use a config file instead of parameters', metavar='file')
     group = OptionGroup(parser, 'Plotting Options', 'Use these options to generate graphics and customize graphics.'
                     'It is believed that some of them bite.')
     group.add_option('-p', '--plot', dest='doPlot', action='store_true', default=False,
@@ -238,24 +279,45 @@ if __name__ == '__main__':
     parser.add_option_group(group)
     (options, args) = parser.parse_args()
     
+    
     if len(args)==1:  #no ancestral files given run in default with all HGDP populations
         options.fileNames=glob.glob(HGDP_BASENAME%options.chrom)
         options.fileNames.extend(args)
     else: options.fileNames=args
     
     if options.configFile:
+        
         print "Running with options listed in:", os.path.abspath(options.configFile)
         #print "Values",parser.values
-        configData=supportConfig.getConfigOptions(options.configFile)
-        #for key in configData:
-        #    parser.values[key]=configData[key]
-        #print "New Values",parser.values
-        options.chrom=configData['chrom']
-        options.win=configData['win']
-        options.nGens=configData['nGens']
-        options.saveFile=configData['saveFile']
-        options.correctFile=configData['correctFile']
-        options.fileNames=configData['fileNames']
+        if os.path.exists(options.configFile):
+            configData=supportConfig.getConfigOptions(options.configFile)
+            #for key in configData:
+            #    parser.values[key]=configData[key]
+            #print "New Values",parser.values
+            #options.chrom=configData['chrom'] if options.chrom==0 else options.chrom
+            
+            options.chrom=configData['chrom']
+            
+            options.win=configData['win']
+            #options.win=configData['win'] if options.win==100 else options.win 
+            options.nGens=configData['nGens']
+            options.saveFile=configData['saveFile']
+            options.correctFile=configData['correctFile']
+            options.fileNames=configData['fileNames']
+            
+            if not options.doPlot: 
+                #Check if plot was set before
+                options.doPlot=configData['doPlot']
+                
+                if configData['labels']:
+                    options.labels=configData['labels'].split(',')
+                    
+                if configData['RGB']:
+                    options.rgb=validateColors(configData['RGB'])
+        else:
+            #just print the error here. Correct error handling should be specified
+            print "Error Invalid Config File Specified"
+                
         #print supportConfig.getConfigOptions("SupportConfig.cfg")
         
     if options.rgb!=None and len(options.rgb)<len(args)-1:
