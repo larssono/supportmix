@@ -60,9 +60,13 @@ def concurrentFileReader(*args, **kwargs):
     first word (or key word)
     
     First call returns the first line, i.e the column headers.
-    Subsequent calls returns one line at a time where row headers are similar."""
+    Subsequent calls returns one line at a time where row headers are similar.
+    
+    TODO: Add comments for kwargs
+    """
     fps= map(openfile, args)  #open input files
     key= kwargs.get('key', 0)
+    nHeaders= kwargs.get('nHeaders', 1)
     #fps= map(open, args)  #open input files
     lineDeques=[]  #Create storage for read lines
     lineLabels=[]  #Create storage for labels in readLines
@@ -71,8 +75,9 @@ def concurrentFileReader(*args, **kwargs):
         lineDeques.append(deque())
         lineLabels.append(dict())
     
-    subjectLists=[np.asarray(fp.readline().strip().split()[2:], dtype=np.str_) for fp in fps]
-    yield subjectLists   #First time called give subjects
+    for i in range(nHeaders):
+        subjectLists=[np.asarray(fp.readline().strip().split()[2:], dtype=np.str_) for fp in fps]
+        yield subjectLists   #First time called give subjects
 
     try:
         while True:
