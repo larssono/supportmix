@@ -110,18 +110,22 @@ def runSVM(fileNames, nGens, win_size, chrom, svmC=100):
     return subjects[-1], snpNames, snpLocations, admixedClassPre, admixedClass, p
 
 
-def accuracySummary(correctFile, admixedClass):
+def accuracySummary(correctFile, admixedFile):
     """If given a file with the correct classifications calculates the accuracy
 
     Arguments:
     - `correctFile`: File name of correct classifications
-    - `admClass`: 2D array of classificaitions
+    - `admixedFile`: File name for admixed output
     """
-    correct=np.array([l.split()[2:] for l in fileReader.openfile(correctFile).readlines()[1:]], np.float)
-    #Compare and find successRate
-    hmmClass=np.repeat(admixedClass, options.win, 0)[:len(correct),:]
-    hmmSuccess=100*(hmmClass==correct).sum(0)/float(len(correct))
-    print 'Correct %0.3g +/- %0.2g' %(np.mean(hmmSuccess), np.std(hmmSuccess))
+    #correct=np.array([l.split()[2:] for l in fileReader.openfile(correctFile).readlines()[1:]], np.float)
+    totalCorrect=0
+    total=0
+    for chrom, snpNames, ancestry in fileReader.concurrentFileReader(correctFile, admixedFile, key=1, nHeaders=0):
+        data=zip(ancestry[0][2:],ancestry[1][2:])
+        totalCorrect+=sum([a==b for a,b in data])
+        total+=len(data)
+    hmmSuccess=100.0*totalCorrect/total
+    print 'Correct %0.3g' %(hmmSuccess)
 
 
 def saveFiles(options, subjects, snpNames, snpLocations, admixedClass, p):
@@ -204,13 +208,6 @@ def optColorProcessor(option, opt_str, value, parser):
         parser.values.doPlot=True
     except:
         raise OptionValueError('color specification to %s incorrect' %opt_str)
-#def optColorProcessor(option, opt_str, value, parser):
-#    conv=pylab.mpl.colors.ColorConverter()
-#    try: 
-#        parser.values.rgb=validateColors(value)
-#        parser.values.doPlot=True
-#    except:
-#        raise OptionValueError('color specification to %s incorrect' %opt_str)
 
 
 def validateColors(value):
@@ -349,5 +346,5 @@ if __name__ == '__main__':
     for i, pop in enumerate(options.fileNames[:-1]):
         pop=os.path.split(pop)[-1]
         print 'Pop %s: %2.2g' %(pop, 100*np.sum(admixedClass.flatten()==i)/float(np.prod(admixedClass.shape)))
-    if options.correctFile: accuracySummary(options.correctFile, admixedClass)
+    if options.correctFile: accuracySummary(options.correctFile, options.saveFile+".tped")
     if options.doPlot: plotResults(options, subs, snpNames, snpLocs, admixedClass, p)
