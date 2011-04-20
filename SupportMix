@@ -1,5 +1,5 @@
 #!/usr/bin/python
-DEBUG=True
+DEBUG=False
 import sys
 import gzip
 import glob
@@ -38,10 +38,9 @@ including chr[0-9]* in the name.
 
 
 def winSizeBPandCM(snpLocations, winSize, chrom):
-    chrom='chr%i'%chrom
     gm=regionClassifier.geneticMap(MAPFILES%chrom)
     winStarts=[0]; winStarts.extend(snpLocations[::winSize])
-    gmPos=map(gm.pos2gm, winStarts)
+    gmPos=gm.pos2gm(winStarts)
     return np.diff(winStarts), np.diff(gmPos)
 
 
@@ -87,15 +86,15 @@ def runSVM(fileNames, nGens, win_size, chrom, svmC=100):
     classifier=regionClassifier.SVMpymvpa(C=svmC)
     smoother=regionClassifier.hmmFilter(geneticMapFile=MAPFILES%chrom,nGens=nGens,nClasses=len(fileNames)-1)
 
-    subjects=files.next()
+    subjects=files.next()[0]
     nTrain=np.sum(map(len, subjects[:-1]))  #Number of samples in training set
     nTest=len(subjects[-1]);
     labelsTrain =sum([[i]*len(sub) for i, sub in enumerate(subjects[:-1])],[])
     vals=np.zeros((nTrain+nTest, win_size))  #temporary storage of output
     while True: #for j in range(100): #To go through all positions in file
-        for i, (snpName, snpLocation, snps) in enumerate(files):
-            snpNames.append(snpName)
-            snpLocations.append(float(snpLocation))
+        for i, (snpInfo, snps) in enumerate(files):
+            snpNames.append(snpInfo[0])
+            snpLocations.append(float(snpInfo[1]))
             vals[:,i] = fileReader.nucleotides2Haplotypes(sum(snps, []))
             if i==vals.shape[1]-1:
                 break
@@ -120,8 +119,9 @@ def accuracySummary(correctFile, admixedFile):
     #correct=np.array([l.split()[2:] for l in fileReader.openfile(correctFile).readlines()[1:]], np.float)
     totalCorrect=0
     total=0
-    for chrom, snpNames, ancestry in fileReader.concurrentFileReader(correctFile, admixedFile, key=1, nHeaders=0):
-        data=zip(ancestry[0][2:],ancestry[1][2:])
+    for labels, ancestry in fileReader.concurrentFileReader(correctFile, admixedFile, 
+                                                            key=[0,1], nHeaders=0, nLabels=4):
+        data=zip(ancestry[0],ancestry[1])
         totalCorrect+=sum([a==b for a,b in data])
         total+=len(data)
     hmmSuccess=100.0*totalCorrect/total
@@ -222,7 +222,6 @@ def optLabelProcessor(option, opt_str, value, parser):
     try: 
         parser.values.labels=value.split(',')
         parser.values.doPlot=True
-
     except:
         raise OptionValueError('label specification to %s incorrect' %opt_str)
 
@@ -319,11 +318,11 @@ if __name__ == '__main__':
         
     if options.rgb!=None and len(options.rgb)<len(args)-1:
         parser.print_usage()
-        print 'SupportMix: error: too few colors specified to --RGB'
+        sys.stderr.write('SupportMix: error: too few colors specified to --RGB\n')
         sys.exit()
     if options.labels!=None and len(options.labels)<len(args)-1:
         parser.print_usage
-        print 'SupportMix: error: too few colors specified to --RGB'
+        sys.stderr.write('SupportMix: error: too few colors specified to --RGB\n')
         sys.exit()
 
     if options.chrom==0: #Use filenames to guess the chromsome used
@@ -347,4 +346,6 @@ if __name__ == '__main__':
         pop=os.path.split(pop)[-1]
         print 'Pop %s: %2.2g' %(pop, 100*np.sum(admixedClass.flatten()==i)/float(np.prod(admixedClass.shape)))
     if options.correctFile: accuracySummary(options.correctFile, options.saveFile+".tped")
+    bp, gm=winSizeBPandCM(snpLocs, options.win, options.chrom)
+    print 'Mean window size: %i+/-%i bp, %2.2g+/-%2.2g cM' %(bp.mean(), bp.std(), gm.mean(), gm.std())
     if options.doPlot: plotResults(options, subs, snpNames, snpLocs, admixedClass, p)

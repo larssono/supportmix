@@ -3,13 +3,13 @@ from scipy.linalg import svd
 
 files=fileReader.concurrentFileReader(*sys.argv[1:])
 
-subjects=files.next()
+subjects=files.next()[0]
 snpLabels=[]        #stores snp labels from in files
 snpLocations=[]     #stores physical location from files
 snpVals=[]
-for i, (snpName, snpLocation, snps) in enumerate(files):
-    snpLabels.append(snpName)
-    snpLocations.append(float(snpLocation))
+for i, (snpInfo, snps) in enumerate(files):
+    snpLabels.append(snpInfo[0])
+    snpLocations.append(float(snpInfo[1]))
     snpVals.append(fileReader.nucleotides2Haplotypes(sum(snps, [])))
 
 snps=np.asarray(snpVals)

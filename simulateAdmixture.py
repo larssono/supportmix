@@ -51,13 +51,13 @@ def saveHaplotypes(filename, subjectNames, snpNames, snpPos, snpVals):
 def readFiles(files):
     nFiles=len(files)
     files=fileReader.concurrentFileReader(*files)
-    subjects=files.next()
+    subjects=files.next()[0]
     snpNames=[]; snpPos=[];  pops=[[] for i in range(nFiles)]
-    for l in files:
-        snpNames.append(l[0])
-        snpPos.append(int(l[1]))
+    for s, l in files:
+        snpNames.append(s[0])
+        snpPos.append(int(s[1]))
         for i in range(nFiles):
-            pops[i].append(l[2][i])
+            pops[i].append(l[i])
     nSNPs=len(snpNames)
     pops=map(np.asarray, pops)
     nPops=[l.shape[1] for l in pops]
@@ -65,7 +65,7 @@ def readFiles(files):
 
 if __name__ == '__main__':
     CHR='chr22'
-    DATA_DIR='../../../human_genome_data/'
+    DATA_DIR='../../human_genome_data/'
     POP_FILES=[DATA_DIR+'hapmap3/CEU/TRIOS/hapmap3_r2_b36_fwd.consensus.qc.poly.%s_ceu.phased.gz'%CHR,
                DATA_DIR+'hapmap3/YRI/TRIOS/hapmap3_r2_b36_fwd.consensus.qc.poly.%s_yri.phased.gz'%CHR]
     F_GM=DATA_DIR+'/hapmap2/genetic_map_%s_b36.txt'%CHR
