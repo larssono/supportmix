@@ -165,7 +165,7 @@ def plotResults(options, subjects, snpNames, snpLocations, admixedClass, p):
     - `snpNames`:list of rsIds
     - `snpLocations`: list of positions of rsIds
     - `admixedClass`: matrix of classifications
-    - `p`: matrix of posterior probabiltity for each classified loci
+    - `p`: matrix of posterior probability for each classified loci
     """
     nColors=len(options.fileNames)-1
     if not options.rgb:
@@ -264,6 +264,8 @@ if __name__ == '__main__':
                       help='Use a config file instead of parameters', metavar='file')
 #    parser.add_option('-C', '--config', type='string', dest='configFile', action='callback', callback=optConfigFileProcessor,
 #                      help='Use a config file instead of parameters', metavar='file')
+    parser.add_option('-k', '--create_config', type='string', dest='writeConfigFile',
+                      help='Store config options in a file')
     group = OptionGroup(parser, 'Plotting Options', 'Use these options to generate graphics and customize graphics.'
                     'It is believed that some of them bite.')
     group.add_option('-p', '--plot', dest='doPlot', action='store_true', default=False,
@@ -282,8 +284,8 @@ if __name__ == '__main__':
     else: options.fileNames=args
     
     if options.configFile:
-        
-        print "Running with options listed in:", os.path.abspath(options.configFile)
+        if DEBUG:
+            print "Running with options listed in:", os.path.abspath(options.configFile)
         #print "Values",parser.values
         if os.path.exists(options.configFile):
             configData=supportConfig.getConfigOptions(options.configFile)
@@ -293,7 +295,7 @@ if __name__ == '__main__':
             #options.chrom=configData['chrom'] if options.chrom==0 else options.chrom
             
             options.chrom=configData['chrom']
-            
+
             options.win=configData['win']
             #options.win=configData['win'] if options.win==100 else options.win 
             options.nGens=configData['nGens']
@@ -337,6 +339,9 @@ if __name__ == '__main__':
 
     if DEBUG:
         print "Running SVM with the following options",options.fileNames, options.nGens,options.win, options.chrom
+    
+    if options.writeConfigFile:
+        supportConfig.writeConfigFile(options,options.writeConfigFile)
 
     subs, snpNames, snpLocs, admixedClassPre, admixedClass,p = runSVM(options.fileNames, options.nGens, 
                                                                       options.win, options.chrom)

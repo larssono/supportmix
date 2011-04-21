@@ -1,6 +1,7 @@
-import ConfigParser
 import sys
 import os
+import ConfigParser
+from optparse import OptionParser
 
 
 def createDataPath(dataPath='data'):
@@ -14,7 +15,7 @@ def createDataPath(dataPath='data'):
     return os.path.join(programPath, dataPath)
 
 
-def readConfig(configFile="SupportMix.cfg"):
+def readConfig(configFile="supportMix.cfg"):
     config=ConfigParser.ConfigParser()
     config.read(configFile)
     return config
@@ -91,8 +92,8 @@ def getConfigOptions(configFile):
     
     fileNames=[]
     admixed=None
-    for item in config.items('input'):
-        fileItem=item[1]
+    for itemLabel,fileItem in config.items('input'):
+        #fileItem=inputItem
         
         if baseDataDir!=None:
             fileItem=os.path.join(baseDataDir,fileItem)
@@ -100,7 +101,7 @@ def getConfigOptions(configFile):
         if not os.path.exists(fileItem):
             raise ConfigParser.Error("Can't find file: %s"%fileItem)
             
-        if item[0]!='admixed':
+        if itemLabel!='admixed':
             fileNames.append(fileItem)
         else:
             admixed=fileItem
@@ -133,7 +134,48 @@ def getConfigOptions(configFile):
             configData['labels']=None
         
     return configData
+
+def writeConfigFile(configData,configFileName='outSupportMix.cfg'):
+    '''Writes a configuration file for the current settings
+    '''
     
+    config=ConfigParser.ConfigParser()
+    #config=ConfigParser.RawConfigParser()
+    
+    config.add_section('parameters')
+    chromValue=configData.chrom
+    chromValue=chromValue.split("chr")[1]
+    config.set('parameters', 'chromosome', chromValue)
+    config.set('parameters', 'window', configData.win)
+    config.set('parameters', 'generations', configData.nGens)
+    config.set('parameters', 'saveFile', configData.saveFile)
+    baseDataDir, ancestryFile=os.path.split(configData.correctFile)
+    config.set('parameters', 'ancestryFile', ancestryFile)
+    
+    config.add_section('input')
+    baseItemLabel="sample%d"
+    #here we are not checking that all the files have the same path coming in
+    #We are assuming that all the files are path of the data path if it was been 
+    #defined. Thus only the base name of the file is kept.
+    #@TODO: Check that fileNames is not empty
+    for i,fileItem in enumerate(configData.fileNames[:-1]):
+        config.set('input', baseItemLabel%(i+1), os.path.basename(fileItem))
+    config.set('input','admixed', os.path.basename(configData.fileNames[-1]))
+    
+    if baseDataDir!='':
+        config.add_section('data location')
+        config.set('data location', 'baseDataDir', baseDataDir)
+    
+    config.add_section('plot options')
+    config.set('plot options','plot',configData.doPlot)
+    
+    #We are not saving RGB values since they are modified by SupportMix before using
+    #config.set('plot options','RGB',configData.rgb)
+    if configData.labels:
+        config.set('plot options','labels',",".join(configData.labels))
+
+    with open(configFileName, 'wb') as configfile: config.write(configfile)
+
 
 if __name__ =="__main__":
    

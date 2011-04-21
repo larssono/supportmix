@@ -18,8 +18,8 @@ else:
     #add the dependencies bellow the exe folder by the cxFreeze
     includeDependencies = [("/usr/share/pyshared/mdp/hinet/hinet.css", "mdp/hinet/hinet.css"),("/usr/share/pyshared/mdp/utils/slideshow.css", "mdp/utils/slideshow.css"),("/usr/lib/libblas/libblas.so.3gf.0","libblas.so.3gf"),
 ("/usr/lib/lapack/liblapack.so.3gf.0","liblapack.so.3gf"), ("/usr/lib/libgfortran.so.3","libgfortran.so.3"), ("/etc/matplotlibrc","matplotlibrc"),
-("/usr/lib/libBLT.2.4.so.8.5","libBLT.2.4.so.8.5"), ("/usr/lib/libtk8.5.so.0","libtk8.5.so.0"), ("/usr/lib/libtcl8.5.so.0","libtcl8.5.so.0"), ("/usr/lib64/libz.so","libz.so"), ("/lib64/libc.so.6","libc.so.6"), ("/lib64/ld-linux-x86-64.so.2","ld-linux-x86-64.so.2")] #,( matplotlib.get_data_path(),"mpl-data"),]
-    zipDependencies = [ ( matplotlib.get_data_path(),"mpl-data"),]
+("/usr/lib/libBLT.2.4.so.8.5","libBLT.2.4.so.8.5"), ("/usr/lib/libtk8.5.so.0","libtk8.5.so.0"), ("/usr/lib/libtcl8.5.so.0","libtcl8.5.so.0"), ("/usr/lib64/libz.so","libz.so"), ("/lib64/libc.so.6","libc.so.6"), ("/lib64/ld-linux-x86-64.so.2","ld-linux-x86-64.so.2"),("/lib/libssl.so.0.9.8","libssl.so.0.9.8"),("/lib/libcrypto.so.0.9.8","libcrypto.so.0.9.8")] #,( matplotlib.get_data_path(),"mpl-data"),]
+    zipDependencies = [ ( "/usr/share/matplotlib/mpl-data/","mpl-data"),]
 
 
 
