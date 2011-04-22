@@ -25,8 +25,8 @@ import scipy.signal
 import matplotlib.backends.backend_tkagg
 ####################################
 
-HGDP_BASENAME=supportConfig.createDataPath('data/hgdp/*/*%s.bgl.phased.gz')
-MAPFILES=supportConfig.createDataPath('data/hapmap2/genetic_map_%s_b36.txt')
+HGDP_BASENAME=supportConfig.createDataPath('data/hgdp/*/*chr%s.bgl.phased.gz')
+MAPFILES=supportConfig.createDataPath('data/hapmap2/genetic_map_chr%s_b36.txt')
 USAGE="""%prog [options] ancestralFile1 ancestralFile2 [...] admixedFile
 
 where the ancestralFiles and admixedFiles are contain phased samples
@@ -190,7 +190,7 @@ def plotResults(options, subjects, snpNames, snpLocations, admixedClass, p):
     pylab.xticks(pos[1:-1], labels.astype(np.int))
     pylab.xlabel('Position [Mb]')
     pylab.ylabel('Subjects')
-    pylab.title(options.chrom)
+    pylab.title('chromsomes%s' %options.chrom)
     pylab.axes([.85, .1, .13, .85])
     y=0
     for i, label in enumerate(options.labels):
@@ -214,8 +214,6 @@ def validateColors(value):
     conv=pylab.mpl.colors.ColorConverter()
     values=[conv.to_rgba(c) for c in value.split(',')]
     return values
-#    except:
-#        raise OptionValueError('color specification to %s incorrect' %"RGB")
 
 
 def optLabelProcessor(option, opt_str, value, parser):
@@ -224,33 +222,11 @@ def optLabelProcessor(option, opt_str, value, parser):
         parser.values.doPlot=True
     except:
         raise OptionValueError('label specification to %s incorrect' %opt_str)
-
-#def optConfigFileProcessor(option, opt_str, value, parser):
-#    print "Calling Processor"
-#    print "Running with options listed in:", os.path.abspath(value)
-#    #print "Values",parser.values
-#    configData=supportConfig.getConfigOptions(value)
-#    #for key in configData:
-#    #    parser.values[key]=configData[key]
-#    #print "New Values",parser.values
-#    parser.values.chrom=configData['chrom']
-#    parser.values.win=configData['win']
-#    parser.values.nGens=configData['nGens']
-#    parser.values.saveFile=configData['saveFile']
-#    parser.values.correctFile=configData['correctFile']
-#    parser.values.fileNames=configData['fileNames']
-#    parser.values.doPlot=configData['doPlot']
-#    
-#    if configData['labels']:
-#        parser.values.labels=configData['labels'].split(',')
-#        
-#    if configData['RGB']:
-#        parser.values.rgb=validateColors(configData['RGB'])
     
 
 if __name__ == '__main__':
     parser = OptionParser(usage=USAGE)
-    parser.add_option('-c', '--chromosome', type='int', dest='chrom', default=0,
+    parser.add_option('-c', '--chromosome', type='str', dest='chrom', default=0,
                       help='Chromsome being analysed (default guessed from file names)', metavar='N')
     parser.add_option('-w', '--window', type='int', dest='win', default=100,
                       help='Number of SNPs in each window (default 100)', metavar='N')
@@ -262,10 +238,6 @@ if __name__ == '__main__':
                       help='FILE contains correct classifications in tab delimited format with SNPs in rows and samples in columns (first two columns contain rsID and position. ', metavar='FILE')
     parser.add_option('-C', '--config', type='string', dest='configFile',
                       help='Use a config file instead of parameters', metavar='file')
-#    parser.add_option('-C', '--config', type='string', dest='configFile', action='callback', callback=optConfigFileProcessor,
-#                      help='Use a config file instead of parameters', metavar='file')
-    parser.add_option('-k', '--create_config', type='string', dest='writeConfigFile',
-                      help='Store config options in a file')
     group = OptionGroup(parser, 'Plotting Options', 'Use these options to generate graphics and customize graphics.'
                     'It is believed that some of them bite.')
     group.add_option('-p', '--plot', dest='doPlot', action='store_true', default=False,
@@ -277,71 +249,46 @@ if __name__ == '__main__':
     parser.add_option_group(group)
     (options, args) = parser.parse_args()
     
-    
     if len(args)==1:  #no ancestral files given run in default with all HGDP populations
         options.fileNames=glob.glob(HGDP_BASENAME%options.chrom)
         options.fileNames.extend(args)
-    else: options.fileNames=args
+    else: options.fileNames=args  #TODO handle len(args)==2 case
     
     if options.configFile:
         if DEBUG:
             print "Running with options listed in:", os.path.abspath(options.configFile)
-        #print "Values",parser.values
         if os.path.exists(options.configFile):
             configData=supportConfig.getConfigOptions(options.configFile)
-            #for key in configData:
-            #    parser.values[key]=configData[key]
-            #print "New Values",parser.values
-            #options.chrom=configData['chrom'] if options.chrom==0 else options.chrom
-            
             options.chrom=configData['chrom']
-
             options.win=configData['win']
-            #options.win=configData['win'] if options.win==100 else options.win 
             options.nGens=configData['nGens']
             options.saveFile=configData['saveFile']
             options.correctFile=configData['correctFile']
             options.fileNames=configData['fileNames']
-            
             if not options.doPlot: 
                 #Check if plot was set before
                 options.doPlot=configData['doPlot']
-                
                 if configData['labels']:
                     options.labels=configData['labels'].split(',')
-                    
                 if configData['RGB']:
                     options.rgb=validateColors(configData['RGB'])
         else:
             #just print the error here. Correct error handling should be specified
-            print "Error Invalid Config File Specified"
-                
-        #print supportConfig.getConfigOptions("SupportConfig.cfg")
-        
+            sys.stderr.write("Error Invalid Config File Specified\n")
+            sys.exit(1)  #TODO show usage
     if options.rgb!=None and len(options.rgb)<len(args)-1:
         parser.print_usage()
         sys.stderr.write('SupportMix: error: too few colors specified to --RGB\n')
         sys.exit()
     if options.labels!=None and len(options.labels)<len(args)-1:
-        parser.print_usage
+        parser.print_usage()
         sys.stderr.write('SupportMix: error: too few colors specified to --RGB\n')
         sys.exit()
-
     if options.chrom==0: #Use filenames to guess the chromsome used
-        options.chrom=determineChromosome(args)
-        sys.stderr.write('WARNING! No chromosome was specified assuming: %s\n'%options.chrom)
-    else:
-        options.chrom='chr%s'%options.chrom
-#    if len(args)==1:  #no ancestral files given run in default with all HGDP populations
-#        options.fileNames=glob.glob(HGDP_BASENAME%options.chrom)
-#        options.fileNames.extend(args)
-#    else: options.fileNames=args
-
+        options.chrom=determineChromosome(args).replace('chr','')
+        sys.stderr.write('WARNING! No chromosome was specified assuming: chr%s\n'%options.chrom)
     if DEBUG:
         print "Running SVM with the following options",options.fileNames, options.nGens,options.win, options.chrom
-    
-    if options.writeConfigFile:
-        supportConfig.writeConfigFile(options,options.writeConfigFile)
 
     subs, snpNames, snpLocs, admixedClassPre, admixedClass,p = runSVM(options.fileNames, options.nGens, 
                                                                       options.win, options.chrom)
@@ -354,3 +301,4 @@ if __name__ == '__main__':
     bp, gm=winSizeBPandCM(snpLocs, options.win, options.chrom)
     print 'Mean window size: %i+/-%i bp, %2.2g+/-%2.2g cM' %(bp.mean(), bp.std(), gm.mean(), gm.std())
     if options.doPlot: plotResults(options, subs, snpNames, snpLocs, admixedClass, p)
+    supportConfig.writeConfigFile(options,options.saveFile+'.cfg')

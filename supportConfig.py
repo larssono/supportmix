@@ -144,7 +144,6 @@ def writeConfigFile(configData,configFileName='outSupportMix.cfg'):
     
     config.add_section('parameters')
     chromValue=configData.chrom
-    chromValue=chromValue.split("chr")[1]
     config.set('parameters', 'chromosome', chromValue)
     config.set('parameters', 'window', configData.win)
     config.set('parameters', 'generations', configData.nGens)
