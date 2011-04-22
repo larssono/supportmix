@@ -122,10 +122,10 @@ def getConfigOptions(configFile):
             configData['doPlot']=None
         
         if config.has_option('plot options', 'RGB'):
-            configData['RGB']=config.get('plot options', 'RGB')
+            configData['rgb']=config.get('plot options', 'RGB')
             configData['doPlot']=True
         else:
-            configData['RGB']=None
+            configData['rgb']=None
         
         if config.has_option('plot options', 'labels'):
             configData['labels']=config.get('plot options', 'labels')
@@ -142,14 +142,20 @@ def writeConfigFile(configData,configFileName='outSupportMix.cfg'):
     config=ConfigParser.ConfigParser()
     #config=ConfigParser.RawConfigParser()
     
+    print "DATA Received by writeConfig",configData
+    
     config.add_section('parameters')
-    chromValue=configData.chrom
-    config.set('parameters', 'chromosome', chromValue)
-    config.set('parameters', 'window', configData.win)
-    config.set('parameters', 'generations', configData.nGens)
-    config.set('parameters', 'saveFile', configData.saveFile)
-    baseDataDir, ancestryFile=os.path.split(configData.correctFile)
-    config.set('parameters', 'ancestryFile', ancestryFile)
+    #chromValue=configData.chrom
+    config.set('parameters', 'chromosome', configData['chrom'])
+    config.set('parameters', 'window', configData['win'])
+    config.set('parameters', 'generations', configData['nGens'])
+    config.set('parameters', 'saveFile', configData['saveFile'])
+    
+    if configData['correctFile']:
+        baseDataDir, ancestryFile=os.path.split(configData['correctFile'])
+        config.set('parameters', 'ancestryFile', ancestryFile)
+    else:
+        baseDataDir=None
     
     config.add_section('input')
     baseItemLabel="sample%d"
@@ -157,21 +163,29 @@ def writeConfigFile(configData,configFileName='outSupportMix.cfg'):
     #We are assuming that all the files are path of the data path if it was been 
     #defined. Thus only the base name of the file is kept.
     #@TODO: Check that fileNames is not empty
-    for i,fileItem in enumerate(configData.fileNames[:-1]):
+    for i,fileItem in enumerate(configData['fileNames'][:-1]):
         config.set('input', baseItemLabel%(i+1), os.path.basename(fileItem))
-    config.set('input','admixed', os.path.basename(configData.fileNames[-1]))
+    
+    if baseDataDir:
+        config.set('input','admixed', os.path.basename(configData['fileNames'][-1]))
+    else:
+        baseDataDir, admixed = os.path.split(configData['fileNames'][-1])
+        config.set('input','admixed', admixed)
+    
     
     if baseDataDir!='':
         config.add_section('data location')
         config.set('data location', 'baseDataDir', baseDataDir)
     
-    config.add_section('plot options')
-    config.set('plot options','plot',configData.doPlot)
-    
-    #We are not saving RGB values since they are modified by SupportMix before using
-    #config.set('plot options','RGB',configData.rgb)
-    if configData.labels:
-        config.set('plot options','labels',",".join(configData.labels))
+    if configData['doPlot']:
+        config.add_section('plot options')
+        config.set('plot options','plot',configData['doPlot'])
+        
+        if configData['rgb']:
+            config.set('plot options','RGB',configData['rgb'])
+        if configData['labels']:
+            config.set('plot options','labels',configData['labels'])
+    #        config.set('plot options','labels',",".join(configData['labels']))
 
     with open(configFileName, 'wb') as configfile: config.write(configfile)
 

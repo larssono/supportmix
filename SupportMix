@@ -119,6 +119,7 @@ def accuracySummary(correctFile, admixedFile):
     #correct=np.array([l.split()[2:] for l in fileReader.openfile(correctFile).readlines()[1:]], np.float)
     totalCorrect=0
     total=0
+    print "File1",correctFile, "File2",admixedFile
     for labels, ancestry in fileReader.concurrentFileReader(correctFile, admixedFile, 
                                                             key=[0,1], nHeaders=0, nLabels=4):
         data=zip(ancestry[0],ancestry[1])
@@ -127,57 +128,59 @@ def accuracySummary(correctFile, admixedFile):
     hmmSuccess=100.0*totalCorrect/total
     print 'Correct %0.3g' %(hmmSuccess)
 
-
-def saveFiles(options, subjects, snpNames, snpLocations, admixedClass, p):
+    
+def saveFiles(programParams, subjects, snpNames, snpLocations, admixedClass, p):
     """Saves two tped files and a tfam file of the ancestry classifications
 
     Arguments:
-    - `options`: contains the options used to run the sample
+    - `programParams`: contains the options used to run the sample
     - `subjects`:list of subjects
     - `snpNames`:list of rsIds
     - `snpLocations`: list of positions of rsIds
     - `admixedClass`: matrix of classifications
     - `p`: matrix of posterior probabiltity for each classified loci
     """
+    
     nSubs=admixedClass.shape[1]
-    with open(options.saveFile+".tfam","w") as tFamFp:
+    print "Params recieved",programParams
+    with open(programParams['saveFile']+".tfam","w") as tFamFp:
         pedPadding="0 %s 0 0 0 0 0"
         for subject in subjects:
             tFamFp.write("%s\n"%pedPadding%subject)
-    tPedFp=open(options.saveFile+".tped","w")
-    tPedProbFp=open(options.saveFile+".Probs.tped","w")
+    tPedFp=open(programParams['saveFile']+".tped","w")
+    tPedProbFp=open(programParams['saveFile']+".Probs.tped","w")
     for i, (rsId, rsPos) in enumerate(zip(snpNames, snpLocations)):
-        tPedFp.write('%s %s 0 %i' %(options.chrom, rsId, rsPos))
-        tPedFp.write(' %i'*nSubs %tuple(admixedClass[i/options.win, :]))
+        tPedFp.write('%s %s 0 %i' %(programParams['chrom'], rsId, rsPos))
+        tPedFp.write(' %i'*nSubs %tuple(admixedClass[i/programParams['win'], :]))
         tPedFp.write('\n')
-        tPedProbFp.write('%s %s 0 %i' %(options.chrom, rsId, rsPos))
-        tPedProbFp.write(' %g'*nSubs %tuple(p[i/options.win, :]))
+        tPedProbFp.write('%s %s 0 %i' %(programParams['chrom'], rsId, rsPos))
+        tPedProbFp.write(' %g'*nSubs %tuple(p[i/programParams['win'], :]))
         tPedProbFp.write('\n')
     tPedFp.close()
     tFamFp.close()
 
 
-def plotResults(options, subjects, snpNames, snpLocations, admixedClass, p):
+def plotResults(programParams, subjects, snpNames, snpLocations, admixedClass, p):
     """Generates graphics output    
     Arguments:
-    - `options`: contains the options used to run the sample
+    - `programParams`: contains the options used to run the sample
     - `subjects`:list of subjects
     - `snpNames`:list of rsIds
     - `snpLocations`: list of positions of rsIds
     - `admixedClass`: matrix of classifications
     - `p`: matrix of posterior probability for each classified loci
     """
-    nColors=len(options.fileNames)-1
-    if not options.rgb:
-        options.rgb=[pylab.cm.jet(i/(nColors-1.)*256) for i in range(nColors)]
-    if not options.labels:
-        options.labels=[os.path.split(l)[-1] for l in options.fileNames[:-1]]
+    nColors=len(programParams['fileNames'])-1
+    if not programParams['rgb']:
+        programParams['rgb']=[pylab.cm.jet(i/(nColors-1.)*256) for i in range(nColors)]
+    if not programParams['labels']:
+        programParams['labels']=[os.path.split(l)[-1] for l in programParams['fileNames'][:-1]]
     #Convert classifications to colors
     imColors=np.zeros((admixedClass.shape[1],admixedClass.shape[0],4))
     nWins, nSubs=admixedClass.shape
     for i in range(nWins):
         for j in range(nSubs):
-            imColors[j,i,:]=options.rgb[int(admixedClass[i,j])]
+            imColors[j,i,:]=programParams['rgb'][int(admixedClass[i,j])]
     #Plot classificiations
     pylab.figure()
     ax=pylab.axes([.13, .1, .7, .85])
@@ -190,49 +193,47 @@ def plotResults(options, subjects, snpNames, snpLocations, admixedClass, p):
     pylab.xticks(pos[1:-1], labels.astype(np.int))
     pylab.xlabel('Position [Mb]')
     pylab.ylabel('Subjects')
-    pylab.title('chromsomes%s' %options.chrom)
+    pylab.title('chromsomes%s' %programParams['chrom'])
     pylab.axes([.85, .1, .13, .85])
     y=0
-    for i, label in enumerate(options.labels):
-        pylab.scatter(0,y, s=40, c=options.rgb[i], linewidth=0)
+    for i, label in enumerate(programParams['labels']):
+        pylab.scatter(0,y, s=40, c=programParams['rgb'][i], linewidth=0)
         pylab.text(0+.5, y, label, fontsize=8, verticalalignment='center')
         y+=1;
-    pylab.axis([-0.5, 8, -.3, len(options.labels)-.5])
+    pylab.axis([-0.5, 8, -.3, len(programParams['labels'])-.5])
     pylab.axis('off')
     pylab.show()
-
-def optColorProcessor(option, opt_str, value, parser):
-    conv=pylab.mpl.colors.ColorConverter()
-    try: 
-        parser.values.rgb=[conv.to_rgba(c) for c in value.split(',')]
-        parser.values.doPlot=True
-    except:
-        raise OptionValueError('color specification to %s incorrect' %opt_str)
 
 
 def validateColors(value):
     conv=pylab.mpl.colors.ColorConverter()
-    values=[conv.to_rgba(c) for c in value.split(',')]
-    return values
-
-
-def optLabelProcessor(option, opt_str, value, parser):
-    try: 
-        parser.values.labels=value.split(',')
-        parser.values.doPlot=True
+    try:
+        values=[conv.to_rgba(c) for c in value.split(',')]
+        return values
     except:
-        raise OptionValueError('label specification to %s incorrect' %opt_str)
+#---TODO:  Change the Error to another type of error or handle the missing color by setting a default 
+        raise OptionValueError('color specification to %s incorrect' %"RGB")
+
+
+def validateLabels(value):
+    try: 
+        labels=value.split(',')
+        return labels
+    except:
+        raise OptionValueError('label specification to %s incorrect' %"labels")
     
+def initializeOptionsParser():
+    pass
 
 if __name__ == '__main__':
     parser = OptionParser(usage=USAGE)
-    parser.add_option('-c', '--chromosome', type='str', dest='chrom', default=0,
+    parser.add_option('-c', '--chromosome', type='str', dest='chrom',
                       help='Chromsome being analysed (default guessed from file names)', metavar='N')
-    parser.add_option('-w', '--window', type='int', dest='win', default=100,
+    parser.add_option('-w', '--window', type='int', dest='win',
                       help='Number of SNPs in each window (default 100)', metavar='N')
-    parser.add_option('-g', '--generations', type='float', dest='nGens', default=6,
+    parser.add_option('-g', '--generations', type='float', dest='nGens',
                       help='Number of generations since admixture used in hmm. (default 6)', metavar='N')
-    parser.add_option('-s', '--save', type='str', dest='saveFile', default='outSupportMix',
+    parser.add_option('-s', '--save', type='str', dest='saveFile', 
                       help='Destination file to save output (default outSupportMix)', metavar='file')
     parser.add_option('-a', '--ancestryFile', type='string', dest='correctFile',
                       help='FILE contains correct classifications in tab delimited format with SNPs in rows and samples in columns (first two columns contain rsID and position. ', metavar='FILE')
@@ -240,65 +241,119 @@ if __name__ == '__main__':
                       help='Use a config file instead of parameters', metavar='file')
     group = OptionGroup(parser, 'Plotting Options', 'Use these options to generate graphics and customize graphics.'
                     'It is believed that some of them bite.')
-    group.add_option('-p', '--plot', dest='doPlot', action='store_true', default=False,
+    group.add_option('-p', '--plot', dest='doPlot', action='store_true', 
                       help='Generate graphical output')
-    group.add_option('--RGB', type='string',  dest='rgb', action='callback', callback=optColorProcessor, 
+    group.add_option('--RGB', type='string',  dest='rgb', 
                       help='Color specifications of different populations for graphing : ', metavar='colors')
-    group.add_option('--labels', type='string', dest='labels', action='callback', callback=optLabelProcessor,
+    group.add_option('--labels', type='string', dest='labels',
                       help='populations labels for graphing Example: ceu,yri,mkk', metavar='labels')
     parser.add_option_group(group)
     (options, args) = parser.parse_args()
     
-    if len(args)==1:  #no ancestral files given run in default with all HGDP populations
-        options.fileNames=glob.glob(HGDP_BASENAME%options.chrom)
-        options.fileNames.extend(args)
-    else: options.fileNames=args  #TODO handle len(args)==2 case
+    #Configuration Defaults
+    rawConfiguration={}
+    rawConfiguration['chrom']=0
+    rawConfiguration['win']=100 
+    rawConfiguration['nGens']=6.0
+    rawConfiguration['saveFile']='outSupportMix'
+    rawConfiguration['correctFile']=options.correctFile
+    rawConfiguration['fileNames']=[]
+    rawConfiguration['doPlot']=None
+    rawConfiguration['labels']=None
+    rawConfiguration['rgb']=None
+    rawConfiguration['configFile']=None
+
+    
+    
+    #---SOTRING OPTIONS IN DICTIONARY 
+    #Overwrite options with command line
+#    rawConfiguration['chrom']= options.chrom if options.chrom != None else 0
+#    rawConfiguration['win']=options.win if options.win != None else 100 
+#    rawConfiguration['nGens']=options.nGens if options.nGens != None else 6.0
+    cmdLineConfiguration={}
+    cmdLineConfiguration['chrom']= options.chrom
+    cmdLineConfiguration['win']=options.win 
+    cmdLineConfiguration['nGens']=options.nGens
+    cmdLineConfiguration['saveFile']=options.saveFile
+    cmdLineConfiguration['correctFile']=options.correctFile
+    cmdLineConfiguration['doPlot']=options.doPlot
+    cmdLineConfiguration['labels']=options.labels 
+    cmdLineConfiguration['rgb']=options.rgb
+    cmdLineConfiguration['configFile']=options.configFile
     
     if options.configFile:
         if DEBUG:
             print "Running with options listed in:", os.path.abspath(options.configFile)
         if os.path.exists(options.configFile):
             configData=supportConfig.getConfigOptions(options.configFile)
-            options.chrom=configData['chrom']
-            options.win=configData['win']
-            options.nGens=configData['nGens']
-            options.saveFile=configData['saveFile']
-            options.correctFile=configData['correctFile']
-            options.fileNames=configData['fileNames']
-            if not options.doPlot: 
-                #Check if plot was set before
-                options.doPlot=configData['doPlot']
-                if configData['labels']:
-                    options.labels=configData['labels'].split(',')
-                if configData['RGB']:
-                    options.rgb=validateColors(configData['RGB'])
+            print "DATA LOADED FROM CONFIG FILE:", configData
+            for k,value in configData.iteritems():
+                if value!=None:
+                    rawConfiguration[k]=value
         else:
             #just print the error here. Correct error handling should be specified
-            sys.stderr.write("Error Invalid Config File Specified\n")
-            sys.exit(1)  #TODO show usage
-    if options.rgb!=None and len(options.rgb)<len(args)-1:
+            sys.stderr.write('SupportMix: error: Invalid Config File Specified\n')
+            parser.print_usage()
+            sys.exit(1)
+    else:
+        #We only use the arguments if a config file is not specified
+        #bellow we assume that options.chrom is set
+        if len(args)==1:  #no ancestral files given run in default with all HGDP populations
+            cmdLineConfiguration['fileNames']=glob.glob(HGDP_BASENAME%options.chrom)
+            cmdLineConfiguration['fileNames'].extend(args)
+        elif len(args)==2:  #no ancestral files given 
+            parser.print_usage()
+            sys.exit()
+        else:
+            print "Setting fileNames to Arguments"
+            cmdLineConfiguration['fileNames']=args
+                
+    #overwrite the "raw" configuration values with command line values whenever
+    #they are set
+    for key,value in cmdLineConfiguration.iteritems():
+        if value!=None:
+            rawConfiguration[key]=cmdLineConfiguration[key]
+    #keep the original parameters
+    programParams=rawConfiguration.copy()
+ 
+    if programParams['rgb']!=None:
+        programParams['rgb']=validateColors(programParams['rgb'])
+        programParams['doPlot']=True
+        #make life easier to save the values here
+        rawConfiguration['doPlot']=True
+    if programParams['labels']!=None:
+        programParams['labels']=validateLabels(programParams['labels'])
+        programParams['doPlot']=True
+        rawConfiguration['doPlot']=True       
+    if programParams['rgb']!=None and len(programParams['rgb'])<len(programParams['fileNames'])-1:
         parser.print_usage()
         sys.stderr.write('SupportMix: error: too few colors specified to --RGB\n')
         sys.exit()
-    if options.labels!=None and len(options.labels)<len(args)-1:
+    if programParams['labels']!=None and len(programParams['labels'])<len(programParams['fileNames'])-1:
         parser.print_usage()
-        sys.stderr.write('SupportMix: error: too few colors specified to --RGB\n')
+        sys.stderr.write('SupportMix: error: too few labels specified to --labels\n')
         sys.exit()
-    if options.chrom==0: #Use filenames to guess the chromsome used
-        options.chrom=determineChromosome(args).replace('chr','')
-        sys.stderr.write('WARNING! No chromosome was specified assuming: chr%s\n'%options.chrom)
-    if DEBUG:
-        print "Running SVM with the following options",options.fileNames, options.nGens,options.win, options.chrom
 
-    subs, snpNames, snpLocs, admixedClassPre, admixedClass,p = runSVM(options.fileNames, options.nGens, 
-                                                                      options.win, options.chrom)
-    saveFiles(options, subs, snpNames, snpLocs, admixedClass, p)
+    if programParams['chrom']==0: #Use filenames to guess the chromsome used
+        programParams['chrom']=determineChromosome(programParams['fileNames']).replace('chr','')
+        sys.stderr.write('WARNING! No chromosome was specified assuming: %s\n'%programParams['chrom'])
+
+    
+    if DEBUG:
+        print "CmdLine Options Parameters",programParams
+        print "Running SVM with the following options",programParams['fileNames'], programParams['nGens'], programParams['win'], programParams['chrom']
+    
+    subs, snpNames, snpLocs, admixedClassPre, admixedClass,p = runSVM(programParams['fileNames'], programParams['nGens'], 
+                                                                      programParams['win'], programParams['chrom'])
+    
+    saveFiles(programParams, subs, snpNames, snpLocs, admixedClass, p)
     #output results
-    for i, pop in enumerate(options.fileNames[:-1]):
+    for i, pop in enumerate(programParams['fileNames'][:-1]):
         pop=os.path.split(pop)[-1]
         print 'Pop %s: %2.2g' %(pop, 100*np.sum(admixedClass.flatten()==i)/float(np.prod(admixedClass.shape)))
-    if options.correctFile: accuracySummary(options.correctFile, options.saveFile+".tped")
-    bp, gm=winSizeBPandCM(snpLocs, options.win, options.chrom)
-    print 'Mean window size: %i+/-%i bp, %2.2g+/-%2.2g cM' %(bp.mean(), bp.std(), gm.mean(), gm.std())
-    if options.doPlot: plotResults(options, subs, snpNames, snpLocs, admixedClass, p)
-    supportConfig.writeConfigFile(options,options.saveFile+'.cfg')
+    if programParams['correctFile']:accuracySummary(programParams['correctFile'], programParams['saveFile']+".tped")
+    bp, gm=winSizeBPandCM(snpLocs, programParams['win'], programParams['chrom'])
+    print 'Mean window size: %i+/-%i bp, %2.2g+/-%2.2g cM' %(bp.mean(), bp.std(), gm.mean(), gm.std())  
+    #if programParams['doPlot']: plotResults(options, subs, snpNames, snpLocs, admixedClass, p)
+    if programParams['doPlot']: plotResults(programParams, subs, snpNames, snpLocs, admixedClass, p)
+    supportConfig.writeConfigFile(rawConfiguration,programParams['saveFile']+'.cfg')
