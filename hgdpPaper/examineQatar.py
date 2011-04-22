@@ -31,8 +31,8 @@ snpVals=[]
 for i in range(1,23):
     CHR='chr%i' %i
     files=fileReader.concurrentFileReader(HGDP_FILE%locals(), QATARFILES%locals())
-    subjects=files.next()
-    for i, (snpName, snpLocation, snps) in enumerate(files):
+    subjects=files.next()[0]
+    for i, ([snpName, snpLocation], snps) in enumerate(files):
         snpLabels.append(snpName)
         snpLocations.append(float(snpLocation))
         snpVals.append(fileReader.nucleotides2SNPs(sum(snps, [])))

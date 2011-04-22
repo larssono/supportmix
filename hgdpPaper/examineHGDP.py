@@ -38,7 +38,7 @@ def classify(fileNames, smoother, classifier=regionClassifier.SVMpymvpa(C), win_
     admixedClass=[]     #stores classification of test Subjects
     files=fileReader.concurrentFileReader(*fileNames, key=1)
 
-    subjects=files.next()
+    subjects=files.next()[0]
     nTrain=np.sum(map(len, subjects[:-1]))  #Number of samples in training set
     nTest=len(subjects[-1]);
     labelsTrain =sum([[i]*len(sub) for i, sub in enumerate(subjects[:-1])],[])
@@ -46,7 +46,7 @@ def classify(fileNames, smoother, classifier=regionClassifier.SVMpymvpa(C), win_
     while True: 
         rsIds=[]
         pos=[]
-        for i, (snpName, snpLocation, snps) in enumerate(files):
+        for i, ([snpName, snpLocation], snps) in enumerate(files):
             pos.append(float(snpLocation))
             rsIds.append(snpName)
             vals[:,i] = fileReader.nucleotides2Haplotypes(sum(snps, []))

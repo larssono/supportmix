@@ -23,9 +23,9 @@ def readFiles(fileNames):
     snpLocations=[]  #stores physical location from files
     vals=[]          #Stores Values of genotypes
     files=fileReader.concurrentFileReader(*fileNames, key=0)
-    subjects=files.next()
+    subjects=files.next()[0]
     labels=np.asarray(sum([[i]*len(sub) for i, sub in enumerate(subjects)], []))
-    for i, (snpName, snpLocation, snps) in enumerate(files):
+    for i, ([snpName, snpLocation], snps) in enumerate(files):
         snpLocations.append(float(snpLocation))
         snpNames.append(snpName)
         vals.append(fileReader.nucleotides2Haplotypes(sum(snps, [])))
