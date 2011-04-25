@@ -3,6 +3,11 @@ import os
 import ConfigParser
 from optparse import OptionParser
 
+def fail(parser, str):
+    sys.stderr.write('SupportMix ERROR: %s\n\n' %str)
+    parser.print_usage()
+    sys.exit(1)
+
 
 def createDataPath(dataPath='data'):
     """Returns the Current Path of the "executable" """
@@ -142,7 +147,7 @@ def writeConfigFile(configData,configFileName='outSupportMix.cfg'):
     config=ConfigParser.ConfigParser()
     #config=ConfigParser.RawConfigParser()
     
-    print "DATA Received by writeConfig",configData
+    #print "DATA Received by writeConfig",configData
     
     config.add_section('parameters')
     #chromValue=configData.chrom
