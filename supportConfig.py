@@ -192,7 +192,73 @@ def writeConfigFile(configData,configFileName='outSupportMix.cfg'):
             config.set('plot options','labels',configData['labels'])
     #        config.set('plot options','labels',",".join(configData['labels']))
 
-    with open(configFileName, 'wb') as configfile: config.write(configfile)
+    with open(configFileName, 'wb') as configfile:
+        configfile.write("#SupportMix configuration file.\n#To run type: SupportMix -C %s\n"%(configFileName))
+        config.write(configfile)
+        
+    
+
+def writeConfigFileNEW(configData,configFileName='outSupportMix.cfg'):
+    '''Writes a configuration file for the current settings
+    '''
+    
+    config=ConfigParser.ConfigParser()
+    #config=ConfigParser.RawConfigParser()
+    
+    if configData['correctFile']:
+        baseDataDir, ancestryFile=os.path.split(configData['correctFile'])
+    else:
+        baseDataDir, admixed = os.path.split(configData['fileNames'][-1])
+        
+        
+    ###--- PARAMETERS Section    
+    config.add_section('parameters')
+    #chromValue=configData.chrom
+    config.set('parameters', 'chromosome', configData['chrom'])
+    config.set('parameters', 'window', configData['win'])
+    config.set('parameters', 'generations', configData['nGens'])
+    config.set('parameters', 'saveFile', configData['saveFile'])
+    
+    if ancestryFile:
+        config.set('parameters', 'ancestryFile', ancestryFile)
+    
+    ###--- PLOT Section
+    if configData['doPlot']:
+        config.add_section('plot options')
+        config.set('plot options','plot',configData['doPlot'])
+        
+        if configData['rgb']:
+            config.set('plot options','RGB',configData['rgb'])
+        if configData['labels']:
+            config.set('plot options','labels',configData['labels'])
+    #        config.set('plot options','labels',",".join(configData['labels']))
+    
+
+        
+    ###--- INPUT Section
+    config.add_section('input')
+    baseItemLabel="sample%d"
+    #here we are not checking that all the files have the same path coming in
+    #We are assuming that all the files are path of the data path if it was been 
+    #defined. Thus only the base name of the file is kept.
+    #@TODO: Check that fileNames is not empty
+    for i,fileItem in enumerate(configData['fileNames'][:-1]):
+        config.set('input', baseItemLabel%(i+1), os.path.basename(fileItem))
+    
+    if baseDataDir:
+        config.set('input','admixed', os.path.basename(configData['fileNames'][-1]))
+#    else:
+#        baseDataDir, admixed = os.path.split(configData['fileNames'][-1])
+#        config.set('input','admixed', admixed)
+
+    ###--- DATA LOCATION
+    if baseDataDir!='':
+        config.add_section('data location')
+        config.set('data location', 'baseDataDir', baseDataDir)
+
+    with open(configFileName, 'wb') as configFile:
+        configFile.write("#SupportMix configuration file.\n#To run type: SupportMix -C %s\n\n"%(configFileName))
+        config.write(configFile)
 
 
 if __name__ =="__main__":

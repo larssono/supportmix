@@ -269,13 +269,19 @@ if __name__ == '__main__':
             for k,value in configData.iteritems():
                 if value!=None:
                     rawConfiguration[k]=value
+            #Added support for chromosome only and ancestry files on the config file
+            #         Is this really a stupid idea?  Should we ship a default config file instead?
+            if len(rawConfiguration['fileNames'])==1:  #no ancestral files given run in default with all HGDP populations
+                admixed=rawConfiguration['fileNames']
+                rawConfiguration['fileNames']=glob.glob(HGDP_BASENAME%rawConfiguration['chrom'])
+                rawConfiguration['fileNames'].extend(admixed)
+            elif len(rawConfiguration['fileNames'])==2:  #too few ancestral files given 
+                supportConfig.fail(parser, 'Not enough ancestral populations were given')
         else:
             supportConfig.fail(parser, 'Invalid Config File Specified')
     else:
         #We only use the arguments if a config file is not specified
         #bellow we assume that cndOptions.chrom is set
-        #TODO --- This does not work when the chromosome is set in config file
-        #         Is this really a stupid idea?  ship defualt config file instead?
         if len(args)==1:  #no ancestral files given run in default with all HGDP populations
             cmdOptions.fileNames=glob.glob(HGDP_BASENAME%cmdOptions.chrom)
             cmdOptions.fileNames.extend(args)
