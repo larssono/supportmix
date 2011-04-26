@@ -59,16 +59,38 @@ def determineChromosome(fileNames):
     except:
         supportConfig.fail(parser, 'If no chromosome is specified then all fileNames must contain the same pattern of: chr[0-9]*')
 
+def openFiles(params):
+    """Open files and return return concurrentFileReader object along with subjects.
+    Handles the possibility of both tped files and tfam files
 
-def runSVM(fileNames, nGens, win_size, chrom, svmC=100):
+    Arguments:
+    - `params`: dictionary of settings
+    Returns:
+    - `subjects` - list of list of subjects
+    - `files` - concurrentFileReader object
+    """
+    files=params['fileNames']
+    if params['isBeagle']:
+        files=fileReader.concurrentFileReader(*files, nHeaders=1, key=1, nLabels=2)
+        subjects=files.next()[0]
+        return subjects, files
+    else:
+        tfams=[f.replace('.tped', '.tfam') for f in files]
+        tfams=[fileReader.openfile(f) for f in tfams]
+        subjects=[]
+        for f in tfams:
+            subs=[[l.split(None, 1)[0]+'_b',l.split(None, 1)[0]+'_b']  for l in f]
+            subjects.append(np.asarray(sum(subs, [])))
+        files=fileReader.concurrentFileReader(*files, nHeaders=0, key=[0,1], nLabels=4)
+        return subjects, files
+
+
+def runSVM(params,  svmC=100):
     """Deconvolves ancestry in last file based on ancestral
     populations in first files. TODO fix text to match parameters
     Arguments:
-    - `fileNames`: list of fileNames
-    - `nGens`: Number of generations since admixture used in hmm filter (default=6)
-    - `svmC`: missclassification penalty term in svm (default=100)
-    - `win_size`: number of snps in each window (default=100)
-
+    - `params`: dictionary with at least variables for fileNames, nGens, win and chrom
+    - `svmC`: slack variable for SVM (default=100)
     Returns:
     - `subjects`: list of subject names in admixed sample
     - `snpNames`: list of snpIds    
@@ -77,34 +99,46 @@ def runSVM(fileNames, nGens, win_size, chrom, svmC=100):
     - `admixedClass`:    classification of admixed samples after hmm filter
     - `p`: posterior probability of ancestry assignments
     """
-    files=fileReader.concurrentFileReader(*fileNames, key=1)
+    nGens=params['nGens']
+    winSize=params['win']
+    chrom=params['chrom']
+    mapFile=MAPFILES%chrom #TODO fix to reference given file
+
     snpNames=[]
     snpLocations=[]     #stores physical location from files
+    snpGeneticMap=[]     #stores physical location from files
     ancestralSuccess=[] #stores success of ancestral classification
     admixedClass=[]     #stores classification of test Subjects
-    classifier=regionClassifier.SVMpymvpa(C=svmC)
-    smoother=regionClassifier.hmmFilter(geneticMapFile=MAPFILES%chrom,nGens=nGens,nClasses=len(fileNames)-1)
+    subjects, files=openFiles(params)
 
-    subjects=files.next()[0]
+    classifier=regionClassifier.SVMpymvpa(C=svmC)
+    smoother=regionClassifier.hmmFilter(geneticMapFile=mapFile,nGens=nGens,nClasses=len(subjects)-1)
+
     nTrain=np.sum(map(len, subjects[:-1]))  #Number of samples in training set
     nTest=len(subjects[-1]);
     labelsTrain =sum([[i]*len(sub) for i, sub in enumerate(subjects[:-1])],[])
-    vals=np.zeros((nTrain+nTest, win_size))  #temporary storage of output
-    while True: #for j in range(100): #To go through all positions in file
+    print map(len, subjects)
+    vals=np.zeros((nTrain+nTest, winSize))  #temporary storage of output
+    while True: 
         for i, (snpInfo, snps) in enumerate(files):
-            snpNames.append(snpInfo[0])
-            snpLocations.append(float(snpInfo[1]))
+            if params['isBeagle']:
+                snpNames.append(snpInfo[0])
+                snpLocations.append(float(snpInfo[1]))
+            else:
+                if snpInfo[0]!=chrom: break  #TODO does not work because we are still classifying
+                snpNames.append(snpInfo[1])
+                snpLocations.append(float(snpInfo[3]))
+                #TODO check that we are looking at the right chromsome
             vals[:,i] = fileReader.nucleotides2Haplotypes(sum(snps, []))
             if i==vals.shape[1]-1:
                 break
         ancestral, admixed=classifier(vals[:nTrain,:i+1], labelsTrain, vals[-nTest:, :i+1])
         ancestralSuccess.append(ancestral)
         admixedClass.append(admixed)
-        if i<win_size-1:
+        if i<winSize-1:
             break
     admixedClassPre=np.array(admixedClass)
     admixedClass, p=smoother(snpLocations, ancestralSuccess, admixedClassPre)
-    
     return subjects[-1], snpNames, snpLocations, admixedClassPre, admixedClass, p
 
 
@@ -115,7 +149,6 @@ def accuracySummary(correctFile, admixedFile):
     - `correctFile`: File name of correct classifications
     - `admixedFile`: File name for admixed output
     """
-    #correct=np.array([l.split()[2:] for l in fileReader.openfile(correctFile).readlines()[1:]], np.float)
     totalCorrect=0
     total=0
     for labels, ancestry in fileReader.concurrentFileReader(correctFile, admixedFile, 
@@ -207,8 +240,7 @@ def validateColors(value):
         values=[conv.to_rgba(c) for c in value.split(',')]
         return values
     except:
-#---TODO:  Change the Error to another type of error or handle the missing color by setting a default 
-        raise OptionValueError('color specification to %s incorrect' %"RGB")
+        supportConfig.fail(parser, 'color specification to %s incorrect' %"RGB")
 
 
 def validateLabels(value):
@@ -216,10 +248,8 @@ def validateLabels(value):
         labels=value.split(',')
         return labels
     except:
-        raise OptionValueError('label specification to %s incorrect' %"labels")
+        supportConfig.fail(parser, 'label specification to %s incorrect' %"labels")
     
-def initializeOptionsParser():
-    pass
 
 if __name__ == '__main__':
     #Parameter Defaults
@@ -234,6 +264,7 @@ if __name__ == '__main__':
     rawConfiguration['labels']=None
     rawConfiguration['rgb']=None
     rawConfiguration['configFile']=None
+    rawConfiguration['isBeagle']=False
 
     #Command Line parsing of parameters
     parser = OptionParser(usage=USAGE)
@@ -249,6 +280,11 @@ if __name__ == '__main__':
                       help='FILE contains correct classifications in tab delimited format with SNPs in rows and samples in columns (first two columns contain rsID and position. ', metavar='FILE')
     parser.add_option('-C', '--config', type='string', dest='configFile',
                       help='Use a config file instead of parameters', metavar='file')
+    parser.add_option('-P', type='int', dest='nParallel', metavar='N',
+                      help="Run up to N processes in parallell at the same time (default 1)")
+    parser.add_option('-m', '--map-dir', type='string', dest='mapDir', metavar='directory',
+                      help="path to a directory of genetic map files.  The directory must contain a series of files which names containing chrN where N varies over all chromosomes in the input files  (example: genetic_map_chr1_b36.txt and genetic_map_chr22_b36.txt).  These files contain three, white spaced dilimeted columns: position [bp], combined rate [cM/Mb], Genetic Map [cM].  Example files for human genome release 36 can be found at, ftp://ftp.hapmap.org/hapmap/recombination/2008-03_rel22_B36/rates/ and for relase 37 at, ftp://ftp.hapmap.org/hapmap/recombination/2011-01_phaseII_B37/genetic_map_HapMapII_GRCh37.tar.gz")
+    parser.add_option('-t', action='store_true', dest='isBeagle')
     group = OptionGroup(parser, 'Plotting Options', 'Use these options to generate graphics and customize graphics.'
                     'It is believed that some of them bite.')
     group.add_option('-p', '--plot', dest='doPlot', action='store_true',
@@ -271,6 +307,7 @@ if __name__ == '__main__':
                     rawConfiguration[k]=value
             #Added support for chromosome only and ancestry files on the config file
             #         Is this really a stupid idea?  Should we ship a default config file instead?
+            #Francisco: Should probably be 86 now?
             if len(rawConfiguration['fileNames'])==1:  #no ancestral files given run in default with all HGDP populations
                 admixed=rawConfiguration['fileNames']
                 rawConfiguration['fileNames']=glob.glob(HGDP_BASENAME%rawConfiguration['chrom'])
@@ -280,16 +317,8 @@ if __name__ == '__main__':
         else:
             supportConfig.fail(parser, 'Invalid Config File Specified')
     else:
-        #We only use the arguments if a config file is not specified
-        #bellow we assume that cndOptions.chrom is set
-        if len(args)==1:  #no ancestral files given run in default with all HGDP populations
-            cmdOptions.fileNames=glob.glob(HGDP_BASENAME%cmdOptions.chrom)
-            cmdOptions.fileNames.extend(args)
-        elif len(args)==2:  #too few ancestral files given 
-            supportConfig.fail(parser, 'Not enough ancestral populations were given')
-        else:
-            cmdOptions.fileNames=args
-                
+        cmdOptions.fileNames=args
+                    
     #Overwrite the "raw" configuration values with command line values whenever
     for key,value in cmdOptions.__dict__.iteritems():
         if value!=None:
@@ -297,10 +326,11 @@ if __name__ == '__main__':
     #keep the original parameters
     params=rawConfiguration.copy()
  
+    if len(params['fileNames'])<3:
+        supportConfig.fail(parser, 'Not enough ancestral populations were given')
     if params['rgb']!=None:
         params['rgb']=validateColors(params['rgb'])
         params['doPlot']=True
-        #make life easier to save the values here
         rawConfiguration['doPlot']=True
     if params['labels']!=None:
         params['labels']=validateLabels(params['labels'])
@@ -313,13 +343,12 @@ if __name__ == '__main__':
     if params['chrom']==0: #Use filenames to guess the chromsome used
         params['chrom']=determineChromosome(params['fileNames']).replace('chr','')
         sys.stderr.write('WARNING! No chromosome was specified assuming: %s\n'%params['chrom'])
-    
+
     if DEBUG:
         print "CmdLine Options Parameters",params
         print "Running SVM with the following options",params['fileNames'], params['nGens'], params['win'], params['chrom']
     
-    subs, snpNames, snpLocs, admixedClassPre, admixedClass,p = runSVM(params['fileNames'], params['nGens'], 
-                                                                      params['win'], params['chrom'])
+    subs, snpNames, snpLocs, admixedClassPre, admixedClass,p = runSVM(params)
     
     saveFiles(params, subs, snpNames, snpLocs, admixedClass, p)
     #output results
