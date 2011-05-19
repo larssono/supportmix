@@ -31,7 +31,7 @@ position).  The files have to be from the same chromosome indicated by
 including chr[0-9]* in the name.
 """
 
-
+#--TODO Remove parser dependency
 def fail(parser, str):
     sys.stderr.write('SupportMix ERROR: %s\n\n' %str)
     parser.print_usage()
@@ -41,6 +41,21 @@ def fail(parser, str):
 def warn(str):
     sys.stderr.write('SupportMix WARNING!: %s\n' %str)
     
+
+def determineChromosome(fileNames):
+    """Estimates the chromosome name by searching for "chr" in input
+    file names.
+    Arguments:
+    - @fileNames:List of fileNames 
+    """
+    import re 
+    p = re.compile('chr\d*', re.IGNORECASE)
+    try:
+        found=[p.search(name).group() for name in fileNames]
+        if not np.all(found[0]==np.asarray(found)): raise Error
+        return found[0]
+    except:
+        fail(parser, 'If no chromosome is specified then all fileNames must contain the same pattern of: chr[0-9]*')
 
 
 def createDataPath(dataPath='data'):
@@ -126,20 +141,24 @@ def getConfigOptions(configFile):
     #If the ancestry file's full path is specified the path will be used instead.
     #Otherwise will try to locate the file in the data dir
     
-#    if config.has_option('parameters','ancestryFile'):
+    #ancestryFile=""
+    if config.has_option('parameters','ancestryFile'):
+        ancestryFile=config.get('parameters','ancestryFile')
+    else:
+        ancestryFile=None
+        raise ConfigParser.Error("Undefined Ancestry file")
     
-    ancestryFile=config.get('parameters','ancestryFile')
-    
-    if os.path.exists(ancestryFile):
-        configData['correctFile']=ancestryFile
-    
-    elif baseDataDir!=None:
-        #Check for ancestry file in data path
-        ancestryFile=os.path.join(baseDataDir,ancestryFile)
+    if ancestryFile:
         if os.path.exists(ancestryFile):
             configData['correctFile']=ancestryFile
-        else:
-            raise ConfigParser.Error("Can't find Ancestry File")
+        
+        elif baseDataDir!=None:
+            #Check for ancestry file in data path
+            ancestryFile=os.path.join(baseDataDir,ancestryFile)
+            if os.path.exists(ancestryFile):
+                configData['correctFile']=ancestryFile
+            else:
+                raise ConfigParser.Error("Can't find Ancestry File")
             
     
     
@@ -249,71 +268,8 @@ def writeConfigFile(configData,configFileName='outSupportMix.cfg'):
     with open(configFileName, 'wb') as configfile:
         configfile.write("#SupportMix configuration file.\n#To run type: SupportMix -C %s\n"%(configFileName))
         config.write(configfile)
-        
-    
-
-def writeConfigFileNEW(configData,configFileName='outSupportMix.cfg'):
-    '''Writes a configuration file for the current settings
-    '''
-    
-    config=ConfigParser.ConfigParser()
-    #config=ConfigParser.RawConfigParser()
-    
-    if configData['correctFile']:
-        baseDataDir, ancestryFile=os.path.split(configData['correctFile'])
-    else:
-        baseDataDir, admixed = os.path.split(configData['fileNames'][-1])
-        
-        
-    ###--- PARAMETERS Section    
-    config.add_section('parameters')
-    #chromValue=configData.chrom
-    config.set('parameters', 'chromosome', configData['chrom'])
-    config.set('parameters', 'window', configData['win'])
-    config.set('parameters', 'generations', configData['nGens'])
-    config.set('parameters', 'saveFile', configData['saveFile'])
-    
-    if ancestryFile:
-        config.set('parameters', 'ancestryFile', ancestryFile)
-    
-    ###--- PLOT Section
-    if configData['doPlot']:
-        config.add_section('plot options')
-        config.set('plot options','plot',configData['doPlot'])
-        
-        if configData['rgb']:
-            config.set('plot options','RGB',configData['rgb'])
-        if configData['labels']:
-            config.set('plot options','labels',configData['labels'])
-    #        config.set('plot options','labels',",".join(configData['labels']))
-    
 
         
-    ###--- INPUT Section
-    config.add_section('input')
-    baseItemLabel="sample%d"
-    #here we are not checking that all the files have the same path coming in
-    #We are assuming that all the files are path of the data path if it was been 
-    #defined. Thus only the base name of the file is kept.
-    #@TODO: Check that fileNames is not empty
-    for i,fileItem in enumerate(configData['fileNames'][:-1]):
-        config.set('input', baseItemLabel%(i+1), os.path.basename(fileItem))
-    
-    if baseDataDir:
-        config.set('input','admixed', os.path.basename(configData['fileNames'][-1]))
-#    else:
-#        baseDataDir, admixed = os.path.split(configData['fileNames'][-1])
-#        config.set('input','admixed', admixed)
-
-    ###--- DATA LOCATION
-    if baseDataDir!='':
-        config.add_section('data location')
-        config.set('data location', 'baseDataDir', baseDataDir)
-
-    with open(configFileName, 'wb') as configFile:
-        configFile.write("#SupportMix configuration file.\n#To run type: SupportMix -C %s\n\n"%(configFileName))
-        config.write(configFile)
-
 def validateColors(value):
     conv=pylab.mpl.colors.ColorConverter()
     try:
@@ -394,10 +350,13 @@ def getParameters(rawConfiguration):
         if DEBUG:
             print "Running with options listed in:", os.path.abspath(cmdOptions.configFile)
         if os.path.exists(cmdOptions.configFile):
-            configData=getConfigOptions(cmdOptions.configFile)
-            for k,value in configData.iteritems():
-                if value!=None:
-                    rawConfiguration[k]=value
+            try:
+                configData=getConfigOptions(cmdOptions.configFile)
+                for k,value in configData.iteritems():
+                    if value!=None:
+                        rawConfiguration[k]=value
+            except ConfigParser.Error as errorMsg:
+                sys.stderr.write('SupportMix ERROR: %s\n\n' %errorMsg)
             #Added support for chromosome only and ancestry files on the config file
             #         Is this really a stupid idea?  Should we ship a default config file instead?
             #Francisco: Should probably be 86 now?
@@ -419,8 +378,8 @@ def getParameters(rawConfiguration):
     #keep the original parameters
     params=rawConfiguration.copy()
     
-#    if len(params['fileNames'])<3:
-#        supportConfig.fail(parser, 'Not enough ancestral populations were given')
+    if len(params['fileNames'])<3:
+        fail(parser, 'Not enough ancestral populations were given')
     
 
     if params['rgb']!=None:

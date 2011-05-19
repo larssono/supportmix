@@ -44,20 +44,6 @@ def winSizeBPandCM(snpLocations, winSize, chrom):
     return np.diff(winStarts), np.diff(gmPos)
 
 
-def determineChromosome(fileNames):
-    """Estimates the chromosome name by searching for "chr" in input
-    file names.
-    Arguments:
-    - @fileNames:List of fileNames 
-    """
-    import re 
-    p = re.compile('chr\d*', re.IGNORECASE)
-    try:
-        found=[p.search(name).group() for name in fileNames]
-        if not np.all(found[0]==np.asarray(found)): raise Error
-        return found[0]
-    except:
-        supportConfig.fail(parser, 'If no chromosome is specified then all fileNames must contain the same pattern of: chr[0-9]*')
 
 def openFiles(params):
     """Open files and return return concurrentFileReader object along with subjects.
@@ -258,8 +244,8 @@ if __name__ == '__main__':
     rawConfiguration={}
     params=supportConfig.getParameters(rawConfiguration)
  
-    if len(params['fileNames'])<3:
-        supportConfig.fail(parser, 'Not enough ancestral populations were given')
+#    if len(params['fileNames'])<3:
+#        supportConfig.fail(supportConfig.PARSER, 'Not enough ancestral populations were given')
 
     if DEBUG:
         print "CmdLine Options Parameters",params
