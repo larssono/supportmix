@@ -1,16 +1,17 @@
 import sys
 import os
 import ConfigParser
+from optparse import OptionParser, OptionGroup
+import numpy as np
 import pylab
-#from optparse import OptionParser
-from optparse import OptionParser, OptionGroup, OptionValueError
+
+import fileReader
+
 DEBUG=False
-
-
 CHROM=None
-WIN=None
-N_GENS=None
-SAVE_FILE=None
+WIN=100
+N_GENS=6.0
+SAVE_FILE='outSupportMix'
 CORRECT_FILE=None
 FILE_NAMES=[]
 DO_PLOT=None
@@ -21,8 +22,7 @@ IS_BEAGLE=None
 MAP_DIR=None
 N_PARALLEL=None
 
-
-USAGE="""%prog [options] ancestralFile1 ancestralFile2 [...] admixedFile
+USAGE="""SupportMix [options] ancestralFile1 ancestralFile2 [...] admixedFile
 
 where the ancestralFiles and admixedFiles are contain phased samples
 in tab delimited format snps in rows and samples in columns.  One row
@@ -31,15 +31,16 @@ position).  The files have to be from the same chromosome indicated by
 including chr[0-9]* in the name.
 """
 
-#--TODO Remove parser dependency
-def fail(parser, str):
-    sys.stderr.write('SupportMix ERROR: %s\n\n' %str)
-    parser.print_usage()
+
+def fail(str):
+    sys.stderr.write('Usage: ')
+    sys.stderr.write(USAGE)
+    sys.stderr.write('\nERROR: %s\n\n' %str)
     sys.exit(1)
 
 
 def warn(str):
-    sys.stderr.write('SupportMix WARNING!: %s\n' %str)
+    sys.stderr.write('WARNING!: %s\n' %str)
     
 
 def determineChromosome(fileNames):
@@ -68,43 +69,50 @@ def createDataPath(dataPath='data'):
         programPath= os.path.split(__file__)[0]
     return os.path.join(programPath, dataPath)
 
+def determineChromosome(fileNames):
+    """Estimates the chromosome name by searching for "chr" in input
+    file names.
+    Parameters:
+    - `fileNames` - List of fileNames
+    """
+    import re 
+    p = re.compile('chr\d*', re.IGNORECASE)
+    try:
+        found=[p.search(name).group() for name in fileNames]
+        if not np.all(found[0]==np.asarray(found)): raise Error
+        return found[0]
+    except:
+        fail('If no chromosome is specified then all fileNames must contain the same pattern of: chr[0-9]*')
+
+def determineAllChromosomes(fileNames):
+    """Finds all unique chromosome names in first column of tped file
+    file names.
+    Parameters:
+    - `fileNames` - List of fileNames
+    """
+    fp=fileReader.openfile(fileNames[0])
+    found={}
+    vals=[]
+    for l in fp:
+        l=l.split(None, 2)[0]
+        if l in found: continue
+        found[l]=None
+        vals.append(l)
+    return vals
 
 def readConfig(configFile="supportMix.cfg"):
     config=ConfigParser.ConfigParser()
     config.read(configFile)
     return config
 
-##Thinking of moving some of the validation here
-#def validateOptions(params):
-##    config=readConfig()
-#    if params['rgb']!=None:
-#        params['rgb']=validateColors(params['rgb'])
-#        params['doPlot']=True
-#        rawConfiguration['doPlot']=True
-#    if params['labels']!=None:
-#        params['labels']=validateLabels(params['labels'])
-#        params['doPlot']=True
-#        rawConfiguration['doPlot']=True       
-#    if params['rgb']!=None and len(params['rgb'])<len(params['fileNames'])-1:
-#        fail(parser, 'too few colors specified to --RGB')
-#    if params['labels']!=None and len(params['labels'])<len(params['fileNames'])-1:
-#        fail(parser, 'too few labels specified to --labels')
-#    if params['chrom']==0: #Use filenames to guess the chromsome used
-#        params['chrom']=determineChromosome(params['fileNames']).replace('chr','')
-#        sys.stderr.write('WARNING! No chromosome was specified assuming: %s\n'%params['chrom'])
-
-
    
 def getConfigOptions(configFile):
-    
     config=readConfig(configFile)
     configData={}
-    
     if config.has_option('parameters', 'chromosome'):
         configData['chrom']=config.getint('parameters', 'chromosome')
     else:
         configData['chrom']=CHROM
-    
     if config.has_option('parameters', 'window'):
         configData['win']=config.getint('parameters','window')
     else:
@@ -114,7 +122,6 @@ def getConfigOptions(configFile):
         configData['nGens']=config.getfloat('parameters','generations')
     else:
         configData['nGens']=N_GENS
-        
     if config.has_option('parameters','saveFile'):
         configData['saveFile']=config.get('parameters','saveFile')
     else:
@@ -124,7 +131,6 @@ def getConfigOptions(configFile):
         configData['nParallel']=config.get('parameters','parallel')
     else:
         configData['nParallel']=None
-    
     if config.has_option('parameters','mapDir'):
         configData['mapDir']=config.get('parameters','mapDir')
     else:
@@ -140,7 +146,6 @@ def getConfigOptions(configFile):
     #in the data path
     #If the ancestry file's full path is specified the path will be used instead.
     #Otherwise will try to locate the file in the data dir
-    
     #ancestryFile=""
     if config.has_option('parameters','ancestryFile'):
         ancestryFile=config.get('parameters','ancestryFile')
@@ -151,54 +156,42 @@ def getConfigOptions(configFile):
     if ancestryFile:
         if os.path.exists(ancestryFile):
             configData['correctFile']=ancestryFile
-        
         elif baseDataDir!=None:
             #Check for ancestry file in data path
             ancestryFile=os.path.join(baseDataDir,ancestryFile)
             if os.path.exists(ancestryFile):
                 configData['correctFile']=ancestryFile
             else:
-                raise ConfigParser.Error("Can't find Ancestry File")
-            
-    
-    
+                raise ConfigParser.Error("Can't find Ancestry File")    
     fileNames=[]
     admixed=None
     for itemLabel,fileItem in config.items('input'):
         #fileItem=inputItem
-        
         if baseDataDir!=None:
             fileItem=os.path.join(baseDataDir,fileItem)
         #Validate file existence
         if not os.path.exists(fileItem):
             raise ConfigParser.Error("Can't find file: %s"%fileItem)
-            
         if itemLabel!='admixed':
             fileNames.append(fileItem)
         else:
             admixed=fileItem
-    
     if admixed:
         fileNames.append(admixed)
     else:
         raise ConfigParser.Error("Admixed population not defined")
-    
     configData['fileNames']=fileNames
-    
     if config.has_section('plot options'):
         #configData['doPlot']=config.getboolean('plot options', 'plot')
-        
         if config.has_option('plot options', 'plot'):
             configData['doPlot']=config.get('plot options', 'plot')
         else:
             configData['doPlot']=None
-        
         if config.has_option('plot options', 'RGB'):
             configData['rgb']=config.get('plot options', 'RGB')
             configData['doPlot']=True
         else:
             configData['rgb']=None
-        
         if config.has_option('plot options', 'labels'):
             configData['labels']=config.get('plot options', 'labels')
             configData['doPlot']=True
@@ -208,12 +201,9 @@ def getConfigOptions(configFile):
     return configData
 
 def writeConfigFile(configData,configFileName='outSupportMix.cfg'):
-    '''Writes a configuration file for the current settings
-    '''
-    
+    """Writes a configuration file for the current settings"""
     config=ConfigParser.ConfigParser()
     #config=ConfigParser.RawConfigParser()
-    
     #print "DATA Received by writeConfig",configData
     
     config.add_section('parameters')
@@ -228,7 +218,6 @@ def writeConfigFile(configData,configFileName='outSupportMix.cfg'):
         config.set('parameters','parallel', configData['nParallel'])
     if configData['mapDir']!=None:
         config.set('parameters','mapDir', configData['mapDir'])
-    
     if configData['correctFile']:
         baseDataDir, ancestryFile=os.path.split(configData['correctFile'])
         config.set('parameters', 'ancestryFile', ancestryFile)
@@ -243,22 +232,17 @@ def writeConfigFile(configData,configFileName='outSupportMix.cfg'):
     #@TODO: Check that fileNames is not empty
     for i,fileItem in enumerate(configData['fileNames'][:-1]):
         config.set('input', baseItemLabel%(i+1), os.path.basename(fileItem))
-    
     if baseDataDir:
         config.set('input','admixed', os.path.basename(configData['fileNames'][-1]))
     else:
         baseDataDir, admixed = os.path.split(configData['fileNames'][-1])
         config.set('input','admixed', admixed)
-    
-    
     if baseDataDir!='':
         config.add_section('data location')
         config.set('data location', 'baseDataDir', baseDataDir)
-    
     if configData['doPlot']:
         config.add_section('plot options')
         config.set('plot options','plot',configData['doPlot'])
-        
         if configData['rgb']:
             config.set('plot options','RGB',configData['rgb'])
         if configData['labels']:
@@ -276,7 +260,7 @@ def validateColors(value):
         values=[conv.to_rgba(c) for c in value.split(',')]
         return values
     except:
-        supportConfig.fail(parser, 'color specification to %s incorrect' %"RGB")
+        fail('color specification to %s incorrect' %"RGB")
 
 
 def validateLabels(value):
@@ -284,11 +268,10 @@ def validateLabels(value):
         labels=value.split(',')
         return labels
     except:
-        supportConfig.fail(parser, 'label specification to %s incorrect' %"labels")
+        fail('label specification to %s incorrect' %"labels")
 
 
 def getParameters(rawConfiguration):
-    
     rawConfiguration['chrom']=CHROM
     rawConfiguration['win']=WIN
     rawConfiguration['nGens']=N_GENS
@@ -357,17 +340,8 @@ def getParameters(rawConfiguration):
                         rawConfiguration[k]=value
             except ConfigParser.Error as errorMsg:
                 sys.stderr.write('SupportMix ERROR: %s\n\n' %errorMsg)
-            #Added support for chromosome only and ancestry files on the config file
-            #         Is this really a stupid idea?  Should we ship a default config file instead?
-            #Francisco: Should probably be 86 now?
-#            if len(rawConfiguration['fileNames'])==1:  #no ancestral files given run in default with all HGDP populations
-#                admixed=rawConfiguration['fileNames']
-#                rawConfiguration['fileNames']=glob.glob(HGDP_BASENAME%rawConfiguration['chrom'])
-#                rawConfiguration['fileNames'].extend(admixed)
-#            elif len(rawConfiguration['fileNames'])==2:  #too few ancestral files given 
-#                fail(parser, 'Not enough ancestral populations were given')
         else:
-            fail(parser, 'Invalid Config File Specified')
+            fail('Invalid Config File Specified')
     else:
         cmdOptions.fileNames=args
                     
@@ -379,9 +353,15 @@ def getParameters(rawConfiguration):
     params=rawConfiguration.copy()
     
     if len(params['fileNames'])<3:
-        fail(parser, 'Not enough ancestral populations were given')
-    
-
+        fail('Not enough ancestral populations were given')
+    if params['chrom']==None:
+        if params['isBeagle']: #Use filenames to guess the chromsome used or do all of them
+            params['chrom']=[determineChromosome(params['fileNames']).replace('chr','')]
+            warn('No chromosome was specified assuming: %s\n'%params['chrom'])
+        else:
+            params['chrom']=determineAllChromosomes(params['fileNames'])
+    else:
+        params['chrom']=[params['chrom']]
     if params['rgb']!=None:
         params['rgb']=validateColors(params['rgb'])
         params['doPlot']=True
@@ -391,19 +371,12 @@ def getParameters(rawConfiguration):
         params['doPlot']=True
         rawConfiguration['doPlot']=True       
     if params['rgb']!=None and len(params['rgb'])<len(params['fileNames'])-1:
-        fail(parser, 'too few colors specified to --RGB')
+        fail('too few colors specified to --RGB')
     if params['labels']!=None and len(params['labels'])<len(params['fileNames'])-1:
-        fail(parser, 'too few labels specified to --labels')
-    if params['chrom']==0: #Use filenames to guess the chromsome used
-        params['chrom']=determineChromosome(params['fileNames']).replace('chr','')
-        warn('No chromosome was specified assuming: %s\n'%params['chrom'])
-        #sys.stderr.write('WARNING! No chromosome was specified assuming: %s\n'%params['chrom'])
-        
+        fail('too few labels specified to --labels')
     return params
 
 
-
 if __name__ =="__main__":
-   
     print getConfigOptions("supportMix.cfg")
     

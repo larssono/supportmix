@@ -25,17 +25,6 @@ import scipy.signal
 import matplotlib.backends.backend_tkagg
 ####################################
 
-HGDP_BASENAME=supportConfig.createDataPath('data/hgdp/*/*chr%s.bgl.phased.gz')
-MAPFILES=supportConfig.createDataPath('data/hapmap2/genetic_map_chr%s_b36.txt')
-#USAGE="""%prog [options] ancestralFile1 ancestralFile2 [...] admixedFile
-#
-#where the ancestralFiles and admixedFiles are contain phased samples
-#in tab delimited format snps in rows and samples in columns.  One row
-#of column headers and two columns of header information (i.e. rsId and
-#position).  The files have to be from the same chromosome indicated by
-#including chr[0-9]* in the name.
-#"""
-
 
 def winSizeBPandCM(snpLocations, winSize, chrom):
     gm=regionClassifier.geneticMap(MAPFILES%chrom)
@@ -222,29 +211,8 @@ def plotResults(params, subjects, snpNames, snpLocations, admixedClass, p):
 
 
 if __name__ == '__main__':
-    #Set Parameter Defaults
-    supportConfig.CHROM=0
-    supportConfig.WIN=100
-    supportConfig.N_GENS=6.0
-    supportConfig.SAVE_FILE='outSupportMix'
-    supportConfig.CORRECT_FILE=None
-    supportConfig.FILE_NAMES=[]
-
-    supportConfig.DO_PLOT=None
-    supportConfig.RGB=None
-    supportConfig.CONFIGFILE=None
-    supportConfig.LABELS=None
-    supportConfig.IS_BEAGLE=None
-    supportConfig.MAP_DIR=None
-    supportConfig.N_PARALLEL=None
-
-#   
     rawConfiguration={}
     params=supportConfig.getParameters(rawConfiguration)
- 
-#    if len(params['fileNames'])<3:
-#        supportConfig.fail(supportConfig.PARSER, 'Not enough ancestral populations were given')
-
     if DEBUG:
         print "CmdLine Options Parameters",params
         print "Running SVM with the following options",params['fileNames'], params['nGens'], params['win'], params['chrom']
