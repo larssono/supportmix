@@ -1,12 +1,14 @@
 import sys; sys.path.append('..')
 import gzip
 
-import regionClassifier
-import fileReader
 import mvpa.suite as pymvpa
 from scipy.linalg import svd
 import numpy as np
 import pylab
+
+import popgen
+import regionClassifier
+import fileReader
 
 CHROM=1
 DATADIR='/home/lom/current_projects/human_genome_data/HumanPhasedData/pygmy_bantu_tishkoff/'
@@ -187,8 +189,11 @@ for CHROM in chroms:
         admixedClass.append(admixedClassWin)
         startPos+=winStep
     admixedClassPre=np.asarray(admixedClass)
-    smoother=regionClassifier.hmmFilter(geneticMapFile=MAPFILES%CHROM,nGens=nGens,nClasses=2)
-    admixedClass, p=smoother(snpLocations, ancestralSuccess, admixedClassPre)  
+    smoother=regionClassifier.hmmFilter(winSize,nGens=nGens,nClasses=2)
+    mapFile=MAPFILES%CHROM
+    gm=popgen.geneticMap(mapFile)
+    mapLocations=gm.pos2gm(snpLocations)
+    admixedClass, p=smoother(mapLocations, ancestralSuccess, admixedClassPre)  
     #Store all results
     allAdmixedClass.append(admixedClass)
     allAdmixedP.append(p)

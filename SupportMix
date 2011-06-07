@@ -6,8 +6,8 @@ import glob
 import os
 import pylab, matplotlib
 import numpy as np
-from optparse import OptionParser, OptionGroup, OptionValueError
 
+import popgen
 import fileReader
 import regionClassifier
 import supportConfig
@@ -81,6 +81,7 @@ def runSVM(params,  svmC=100):
     - `subjects`: list of subject names in admixed sample
     - `snpNames`: list of snpIds    
     - `snpLocations`: list of positions in bp
+    - `mapLocations`: list of positions cM
     - `admixedClassPre`: classification of admixed samples before hmm filter
     - `admixedClass`:    classification of admixed samples after hmm filter
     - `p`: posterior probability of ancestry assignments
@@ -94,13 +95,12 @@ def runSVM(params,  svmC=100):
 
     snpNames=[]
     snpLocations=[]     #stores physical location from files
-    snpGeneticMap=[]     #stores physical location from files
+    mapLocations=[]     #stores gentetic map location from files
     ancestralSuccess=[] #stores success of ancestral classification
     admixedClass=[]     #stores classification of test Subjects
     subjects, files=openFiles(params)
-
     classifier=regionClassifier.SVMpymvpa(C=svmC)
-    smoother=regionClassifier.hmmFilter(geneticMapFile=mapFile,nGens=nGens,nClasses=len(subjects)-1)
+    smoother=regionClassifier.hmmFilter(winSize,nGens=nGens,nClasses=len(subjects)-1)
 
     nTrain=np.sum(map(len, subjects[:-1]))  #Number of samples in training set
     nTest=len(subjects[-1]);
@@ -126,8 +126,8 @@ def runSVM(params,  svmC=100):
         if i<winSize-1:
             break
     admixedClassPre=np.array(admixedClass)
-    admixedClass, p=smoother(snpLocations, ancestralSuccess, admixedClassPre)
-    return subjects[-1], snpNames, snpLocations, admixedClassPre, admixedClass, p
+    admixedClass, p=smoother(mapLocations, ancestralSuccess, admixedClassPre)
+    return subjects[-1], snpNames, snpLocations, mapLocations,  admixedClassPre, admixedClass, p
 
 
 def accuracySummary(correctFile, admixedFile):
@@ -137,25 +137,23 @@ def accuracySummary(correctFile, admixedFile):
     - `correctFile`: File name of correct classifications
     - `admixedFile`: File name for admixed output
     """
-    totalCorrect=0
-    total=0
+    totalCorrect=[]
     for labels, ancestry in fileReader.concurrentFileReader(correctFile, admixedFile, 
                                                             key=[0,1], nHeaders=0, nLabels=4):
-        data=zip(ancestry[0],ancestry[1])
-        totalCorrect+=sum([a==b for a,b in data])
-        total+=len(data)
-    hmmSuccess=100.0*totalCorrect/total
-    print 'Correct %0.3g' %(hmmSuccess)
+        totalCorrect.append([a==b for a,b in zip(ancestry[0],ancestry[1])])
+    if len(totalCorrect)==0:
+        supportConfig.fail('The supplied file (%s) does not match the positions of the admixed Samples' %correctFile) 
+    success=100.0*np.sum(totalCorrect, 0)/len(totalCorrect)
+    sys.stdout.write('Correct %0.3g+/-%0.3g\n'  %(np.mean(success), np.std(success)))
 
-
-def saveFiles(params, subjects, snpNames, snpLocations, admixedClass, p):
+def saveFiles(params, subjects, snpNames, snpLocations, mapLocs, admixedClass, p):
     """Saves two tped files and a tfam file of the ancestry classifications
 
     Arguments:
     - `params`: contains the options used to run the sample
     - `subjects`:list of subjects
     - `snpNames`:list of rsIds
-    - `snpLocations`: list of positions of rsIds
+    - `snpLocs`: list of positions of rsIds
     - `admixedClass`: matrix of classifications
     - `p`: matrix of posterior probabiltity for each classified loci
     """

@@ -5,6 +5,7 @@ import numpy as np
 from  hmm import hmm
 import mvpa.suite as pymvpa
 
+
 class regionClassifier:
     def __init__(self):
         """Abstract constructor"""
@@ -75,27 +76,25 @@ class hmmFilter(globalFilter):
     """Uses hmm and transition probabilities to filter previously
     classified regions """
 
-    def __init__(self, geneticMapFile, nGens, nClasses):
+    def __init__(self, winSize, nGens, nClasses):
         """Constructor
         Arguments:
-        - `geneticMapFile`: file containing mapping from physical distance 
-                            to genetic distance
+        - `winSize` - number of snps in each window
         - `nGens`: number of generations since admixture
         - `nClasses`: number of output classifications
         """
-        self.gm=geneticMap(geneticMapFile)
+        self.winSize=winSize
         self.nGens=nGens
         self.nClasses=nClasses
 
-    def __call__(self,snpLocations, successRate, admixedClass):
+    def __call__(self,mapLocations, successRate, admixedClass):
         """Filters transitions based on hmm model 
         Arguments:
-        - `snpLocations`: Locations of all the SNPs classified
+        - `mapLocations`: Locations of all the SNPs classified in [cM]
         - `successRate`:  Probabilities of successfully classifying each snp
         - `admixedClass`: classification made
         """
-        mapLocations=self.gm.pos2gm(snpLocations)
-        win_size=int(np.ceil(len(mapLocations)/float(admixedClass.shape[0])))
+        win_size=self.winSize  #int(np.ceil(len(mapLocations)/float(admixedClass.shape[0])))
         #determine transition matrices
         a=[]; b=[]
         oldPos=0
@@ -138,29 +137,6 @@ def abstract():
     caller = inspect.getouterframes(inspect.currentframe())[1][3]
     raise NotImplementedError(caller + ' must be implemented in subclass')
 
-class geneticMap(object):
-    """keeps track of genetic Map locations and returns closest genetic map 
-    location given a snp location. """
-
-    def __init__(self,file ):
-        """ """
-        fp=open(file)
-        self.m=np.asarray([np.asarray(l.split())[[0,2]] for l in fp.readlines()[1:]], np.float)
-
-    def pos2gm(self, pos):
-        """Converts position in bp to position in centiMorgans"""
-        m=self.m
-        pos=np.asarray(pos)
-        results=np.empty_like(pos)
-
-        i=m[:,0].searchsorted(pos)  #Find probable locations in map
-        i[i==len(m)]=len(m)-1       #Correct those that are beyond the end of the genetic map
-        idx=(m[i,0]==pos)|(i==len(m)-1)|(i==0)   #Fill results with those that match exactly
-        results[idx]=m[i[idx], 1];
-        idx=np.logical_not(idx)
-        #Fill those that require interpolation
-        results[idx]= (m[i[idx],1]-m[i[idx]-1,1]) / (m[i[idx],0]-m[i[idx]-1,0])*(pos[idx]-m[i[idx]-1,0]) + m[i[idx]-1,1]
-        return results
 
 
 if __name__ == '__main__':
