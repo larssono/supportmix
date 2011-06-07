@@ -26,13 +26,17 @@ import matplotlib.backends.backend_tkagg
 ####################################
 
 
-def winSizeBPandCM(snpLocations, winSize, chrom):
-    gm=regionClassifier.geneticMap(MAPFILES%chrom)
-    winStarts=[0]; winStarts.extend(snpLocations[::winSize])
-    gmPos=gm.pos2gm(winStarts)
-    return np.diff(winStarts), np.diff(gmPos)
-
-
+def winSizeBPandCM(results, winSize):
+    """Calculates the average window size in bp and cM"""
+    bpLengths=[]; cmLengths=[]
+    for result in results:
+        snpLocations=result[2]
+        mapLocations=result[3]
+        winStarts=[0]; winStarts.extend(snpLocations[::winSize])
+        mapStarts=[0]; mapStarts.extend(mapLocations[::winSize])
+        bpLengths.extend(np.diff(winStarts))
+        cmLengths.extend(np.diff(mapStarts))
+    return bpLengths, cmLengths
 
 def openFiles(params):
     """Open files and return return concurrentFileReader object along with subjects.
@@ -54,18 +58,15 @@ def openFiles(params):
         tfams=[fileReader.openfile(f) for f in tfams]
         subjects=[]
         for f in tfams:
-            subs=[[l.split(None, 1)[0]+'_b',l.split(None, 1)[0]+'_b']  for l in f]
+            subs=[[l.split(None, 2)[1]+'_a',l.split(None, 2)[1]+'_b']  for l in f]
             subjects.append(np.asarray(sum(subs, [])))
         files=fileReader.concurrentFileReader(*files, nHeaders=0, key=[0,1], nLabels=4)
         return subjects, files
 
 
-def runSVM(params,  svmC=100):
-    """Deconvolves ancestry in last file based on ancestral
-    populations in first files. TODO fix text to match parameters
-    Arguments:
-    - `params`: dictionary with at least variables for fileNames, nGens, win and chrom
-    - `svmC`: slack variable for SVM (default=100)
+def runSVM(params, chrom,  svmC=100):
+    """Deconvolves ancestry in files listed in params object for one chromosome
+
     Returns:
     - `subjects`: list of subject names in admixed sample
     - `snpNames`: list of snpIds    
@@ -74,13 +75,10 @@ def runSVM(params,  svmC=100):
     - `admixedClassPre`: classification of admixed samples before hmm filter
     - `admixedClass`:    classification of admixed samples after hmm filter
     - `p`: posterior probability of ancestry assignments
+    - `chrom`: chromosome name analyzed
     """
     nGens=params['nGens']
     winSize=params['win']
-    chrom=params['chrom']
-    mapFile=MAPFILES%chrom #TODO fix to reference given file
-    if DEBUG:
-        print "Running SVM With:",params
 
     snpNames=[]
     snpLocations=[]     #stores physical location from files
@@ -92,119 +90,224 @@ def runSVM(params,  svmC=100):
     smoother=regionClassifier.hmmFilter(winSize,nGens=nGens,nClasses=len(subjects)-1)
 
     nTrain=np.sum(map(len, subjects[:-1]))  #Number of samples in training set
-    nTest=len(subjects[-1]);
+    nTest=len(subjects[-1]); #Number of admixed samples
     labelsTrain =sum([[i]*len(sub) for i, sub in enumerate(subjects[:-1])],[])
-    print map(len, subjects)
-    vals=np.zeros((nTrain+nTest, winSize))  #temporary storage of output
-    while True: 
-        for i, (snpInfo, snps) in enumerate(files):
+    fileDone=False
+    while True:   #Keep on reading file
+        vals=[]
+        while len(vals)<winSize:  #Keep reading file until window filled.
+            try: (snpInfo, snps) = files.next()
+            except StopIteration: fileDone=True; break
             if params['isBeagle']:
                 snpNames.append(snpInfo[0])
                 snpLocations.append(float(snpInfo[1]))
+                vals.append(fileReader.nucleotides2Haplotypes(sum(snps, []), False))
             else:
-                if snpInfo[0]!=chrom: break  #TODO does not work because we are still classifying
-                snpNames.append(snpInfo[1])
-                snpLocations.append(float(snpInfo[3]))
-                #TODO check that we are looking at the right chromsome
-            vals[:,i] = fileReader.nucleotides2Haplotypes(sum(snps, []))
-            if i==vals.shape[1]-1:
-                break
-        ancestral, admixed=classifier(vals[:nTrain,:i+1], labelsTrain, vals[-nTest:, :i+1])
+                if snpInfo[0]<chrom:  continue  #Read past earlier chromosomes 
+                elif snpInfo[0]>chrom: fileDone=True; break  #Finnished when read past chrom
+                elif snpInfo[0]==chrom:
+                    snpNames.append(snpInfo[1])
+                    mapLocations.append(float(snpInfo[2]))
+                    snpLocations.append(float(snpInfo[3]))
+                    vals.append(fileReader.nucleotides2Haplotypes(sum(snps, []), False))
+        vals=np.asarray(vals).T
+        if len(vals)==0: break #No SNPs in window
+        ancestral, admixed=classifier(vals[:nTrain], labelsTrain, vals[-nTest:])
         ancestralSuccess.append(ancestral)
         admixedClass.append(admixed)
-        if i<winSize-1:
-            break
+        if fileDone: break
+    if len(admixedClass)==0: supportConfig.fail('No SNPs found in specified chromosome')
+
+    #Extract genetic map if supplied as file
+    if params['mapDir']!=None:  #Use mapFiles to determine genetic map
+        mapFile=supportConfig.createDataPath(params['mapDir'])
+        mapFile=glob.glob('%s/*_chr%s_*' %(mapFile, chrom))
+        if len(mapFile)!=1:
+            supportConfig.fail('genetic map folder contains too few or to many files with pattern: *_chr%s_*, %i found.' %(chrom, len(mapFile)))
+        mapFile=mapFile[0]
+        try:
+            gm=popgen.geneticMap(mapFile)
+            mapLocations=gm.pos2gm(snpLocations)
+        except:
+            supportConfig.fail('The genetic map file %s does not conform to correct format.  There should be three columns with one header row of labels.' %mapFile)
+    #Verify that the map supplied is correct
+    if len(mapLocations)!=len(snpLocations):
+        supportConfig.fail('No genetic map coordinates were given')
+    avgGM=(np.max(mapLocations)-np.min(mapLocations))/(snpLocations[-1]-snpLocations[0])*1e6
+    if avgGM < 0.01:
+        supportConfig.warn('The genetic map distances are VERY small at %0.2g cM/Mb!!!' % avgGM)
+    if avgGM > 10:
+        supportConfig.warn('The genetic map distances are VERY LARGE at %0.2g cM/Mb!!!' % avgGM)
+
+    #Do second level filtering with HMM
     admixedClassPre=np.array(admixedClass)
     admixedClass, p=smoother(mapLocations, ancestralSuccess, admixedClassPre)
-    return subjects[-1], snpNames, snpLocations, mapLocations,  admixedClassPre, admixedClass, p
+    return subjects[-1], snpNames, snpLocations, mapLocations,  admixedClassPre, admixedClass, p, chrom
 
 
-def accuracySummary(correctFile, admixedFile):
+def accuracySummary(params, results):
     """If given a file with the correct classifications calculates the accuracy
 
     Arguments:
-    - `correctFile`: File name of correct classifications
-    - `admixedFile`: File name for admixed output
+    - `params`: contains the options used to run the sample including
+          - `correctFile`: File name of correct classification
+          - `saveFile`: File name for admixed output
     """
-    totalCorrect=[]
-    for labels, ancestry in fileReader.concurrentFileReader(correctFile, admixedFile, 
-                                                            key=[0,1], nHeaders=0, nLabels=4):
-        totalCorrect.append([a==b for a,b in zip(ancestry[0],ancestry[1])])
-    if len(totalCorrect)==0:
-        supportConfig.fail('The supplied file (%s) does not match the positions of the admixed Samples' %correctFile) 
-    success=100.0*np.sum(totalCorrect, 0)/len(totalCorrect)
-    sys.stdout.write('Correct %0.3g+/-%0.3g\n'  %(np.mean(success), np.std(success)))
+    pCutoffs=[.99 , .9, .8]
+    winSize=params['win']
+    #Read correct classifications
+    correct=np.loadtxt(params['correctFile'], dtype=np.str)
+    correctChroms=correct[:,0]
+    correctRsIds=correct[:,1]
+    correctMapPos=correct[:,2]
+    correctBpPos=correct[:,3]
+    correct=correct[:,4:].astype(np.int)
+    #Go through all classified chromosomes and compare
+    totalCorrect=np.zeros((1, correct.shape[1]))
+    totalN=np.zeros((1, correct.shape[1]))
+    totalCorrectPCut=np.zeros(len(pCutoffs))
+    totalNPCut=np.zeros(len(pCutoffs))
+    for  subs, snpNames, snpLocs, mapLocs, admixedClassPre, admixedClass,p,chrom in results:
+        chromIdx=np.nonzero(correctChroms==chrom)[0]
+        idx=chromIdx[(correctRsIds[chromIdx]==snpNames)]
+        admixed=np.repeat(admixedClass, winSize, axis=0)[:len(idx),:]  #make admixed right size
+        pVals=np.repeat(p, winSize, axis=0)[:len(idx),:]               #make p values right size
+        totalCorrect+=np.sum(correct[idx, :]==admixed, 0)
+        totalN+=np.sum(pVals>0, 0)
+        for i, pCut in enumerate(pCutoffs):
+            pIdx=pVals>=pCut
+            totalCorrectPCut[i]+=np.sum(correct[idx, :][pIdx]==admixed[pIdx])
+            totalNPCut[i]+=np.sum(pIdx)
 
-def saveFiles(params, subjects, snpNames, snpLocations, mapLocs, admixedClass, p):
+    sys.stdout.write('Correct %0.3g+/-%0.3g\t ('  %(100*np.mean(totalCorrect/totalN), 100*np.std(totalCorrect/totalN)))
+    for i, pCut in enumerate(pCutoffs):
+        sys.stdout.write(' p>%0.2g(N=%0.2g%%): %0.3g ' % (pCut, 100*totalNPCut[i]/float(totalN.sum()), 100*totalCorrectPCut[i]/float(totalNPCut[i])))
+    sys.stdout.write(')\n')
+
+
+def saveFiles(params, results):
     """Saves two tped files and a tfam file of the ancestry classifications
 
     Arguments:
     - `params`: contains the options used to run the sample
-    - `subjects`:list of subjects
-    - `snpNames`:list of rsIds
-    - `snpLocs`: list of positions of rsIds
-    - `admixedClass`: matrix of classifications
-    - `p`: matrix of posterior probabiltity for each classified loci
+    - `results`: is a list of tuples each containing :
+          - `subjects`:list of subjects
+          - `snpNames`:list of rsIds
+          - `snpLocs`: list of positions of rsIds
+          - `mapLocs`: list of genetic map locations
+          - `admixedClassPre`: matrix of classifications before hmm filtering
+          - `admixedClass`: matrix of classifications
+          - `p`: matrix of posterior probabiltity for each classified loci
+          - `chrom`: chromsome name
     """
+    #save tfam file 
+    admixedClass=results[0][5]
+    subjects=results[0][0]
     nSubs=admixedClass.shape[1]
     with open(params['saveFile']+".tfam","w") as tFamFp:
         pedPadding="0 %s 0 0 0 0 0"
-        for subject in subjects:
-            tFamFp.write("%s\n"%pedPadding%subject)
+        for subject in subjects[::2]:
+            tFamFp.write("%s\n"%pedPadding%subject.replace('_a', ''))
+    #Open tped files for saving results
     tPedFp=open(params['saveFile']+".tped","w")
     tPedProbFp=open(params['saveFile']+".Probs.tped","w")
-    for i, (rsId, rsPos) in enumerate(zip(snpNames, snpLocations)):
-        tPedFp.write('%s %s 0 %i' %(params['chrom'], rsId, rsPos))
-        tPedFp.write(' %i'*nSubs %tuple(admixedClass[i/params['win'], :]))
-        tPedFp.write('\n')
-        tPedProbFp.write('%s %s 0 %i' %(params['chrom'], rsId, rsPos))
-        tPedProbFp.write(' %g'*nSubs %tuple(p[i/params['win'], :]))
-        tPedProbFp.write('\n')
+    fpPos=open(params['saveFile']+".positions.txt","w")
+    fpPos.write('start rsID\tend rsId\tstart pos[bp]\tend pos[bp]\n')
+    nWin=params['win']
+    for subs, snpNames, snpLocs, mapLocs, admixedClassPre, admixedClass,p,chrom in results:
+        for i, (rsId, rsPos, rsMap) in enumerate(zip(snpNames[::nWin], snpLocs[::nWin], mapLocs[::nWin])):
+            tPedFp.write('%s %s %0.4g %i' %(chrom, rsId, rsMap, rsPos))
+            tPedFp.write(' %i'*nSubs %tuple(admixedClass[i, :]))
+            tPedFp.write('\n')
+            tPedProbFp.write('%s %s %0.4g %i' %(chrom, rsId, rsMap, rsPos))
+            tPedProbFp.write(' %0.3g'*nSubs %tuple(p[i, :]))
+            tPedProbFp.write('\n')
+        for i in range(0, len(snpLocs), nWin): #Write out a position file
+            endI=min(i+nWin-1, len(snpLocs)-1)
+            fpPos.write('%s\t%s\t%i\t%i\n' %(snpNames[i], snpNames[endI], snpLocs[i], snpLocs[endI]))
     tPedFp.close()
-    tFamFp.close()
+    tPedProbFp.close()
+    fpPos.close()
+    #Write out a legend file
+    with open(params['saveFile']+".population_legend.txt","w") as fp:
+        fp.write('Label\tPopulation origin\n')
+        for i, name in enumerate(params['fileNames'][:-1]):
+            fp.write('%i\t%s\n' %(i, name))
+    sys.stdout.write('Output written to: %s.*\n' % params['saveFile'])
 
 
-def plotResults(params, subjects, snpNames, snpLocations, admixedClass, p):
-    """Generates graphics output    
+def summarizeResults(params, results):
+    """Counts the percentage of loci assigned to each population and outpust to stdout
+
     Arguments:
     - `params`: contains the options used to run the sample
-    - `subjects`:list of subjects
-    - `snpNames`:list of rsIds
-    - `snpLocations`: list of positions of rsIds
-    - `admixedClass`: matrix of classifications
-    - `p`: matrix of posterior probability for each classified loci
+    - `results`: List of results per chromosome
+    """
+    pops=[os.path.split(pop)[-1] for pop in  params['fileNames'][:-1]]
+    for i, pop in enumerate(pops):
+        nPop=0; nTot=0.
+        for  subs, snpNames, snpLocs, mapLocs, admixedClassPre, admixedClass,p,chrom in results:
+            nPop+=np.sum(admixedClass.ravel()==i)
+            nTot+=admixedClass.size
+        sys.stdout.write('Population %s has: %2.2g%% loci assigned\n' %(pop, 100*nPop/nTot))
+
+
+def plotResults(params, results):
+    """Generates graphics output
+
+    Arguments:
+    - `params`: contains the options used to run the sample
+    - `results`: is a list of tuples each containing :
+          - `subjects`:list of subjects
+          - `snpNames`:list of rsIds
+          - `snpLocs`: list of positions of rsIds
+          - `mapLocs`: list of genetic map locations
+          - `admixedClassPre`: matrix of classifications before hmm filtering
+          - `admixedClass`: matrix of classifications
+          - `p`: matrix of posterior probabiltity for each classified loci
+          - `chrom`: chromsome name
     """
     nColors=len(params['fileNames'])-1
     if not params['rgb']:
         params['rgb']=[pylab.cm.jet(i/(nColors-1.)*256) for i in range(nColors)]
     if not params['labels']:
         params['labels']=[os.path.split(l)[-1] for l in params['fileNames'][:-1]]
-    #Convert classifications to colors
-    imColors=np.zeros((admixedClass.shape[1],admixedClass.shape[0],4))
-    nWins, nSubs=admixedClass.shape
-    for i in range(nWins):
-        for j in range(nSubs):
-            imColors[j,i,:]=params['rgb'][int(admixedClass[i,j])]
-    #Plot classificiations
+
     pylab.figure()
-    ax=pylab.axes([.13, .1, .7, .85])
-    pylab.imshow(imColors, interpolation='nearest')
-    pylab.axis('tight')
-    pylab.yticks(range(len(subjects)), subjects)
-    pylab.ylim(-.5, len(subjects)-.5)
-    pos, labels=pylab.xticks()
-    labels=np.round(np.asarray(snpLocations[::len(snpLocations)/(len(labels)-3)])/1e6)
-    pylab.xticks(pos[1:-1], labels.astype(np.int))
-    pylab.xlabel('Position [Mb]')
-    pylab.ylabel('Subjects')
-    pylab.title('chromsomes%s' %params['chrom'])
-    pylab.axes([.85, .1, .13, .85])
-    y=0
-    for i, label in enumerate(params['labels']):
-        pylab.scatter(0,y, s=40, c=params['rgb'][i], linewidth=0)
-        pylab.text(0+.5, y, label, fontsize=8, verticalalignment='center')
-        y+=1;
-    pylab.axis([-0.5, 8, -.3, len(params['labels'])-.5])
+    nTotWin=float(np.sum([result[5].shape[0] for result in results]))*1.2
+    xStart=.1; xSpace=.015; xWidth=.85-xSpace*(len(results)-1)
+    for subs, snpNames, snpLocs, mapLocs, admixedClassPre, admixedClass,p,chrom in results:
+        #Convert classifications to colors
+        imColors=np.zeros((admixedClass.shape[1],admixedClass.shape[0],4))
+        nWins, nSubs=admixedClass.shape
+        for i in range(nWins):
+            for j in range(nSubs):
+                imColors[j,i,:]=params['rgb'][int(admixedClass[i,j])]
+        #Plot classificiations
+        xDelta=admixedClass.shape[0]/nTotWin
+        print xStart, xWidth*xDelta
+        ax=pylab.axes([xStart, .1,  xWidth*xDelta, .8])
+        pylab.imshow(imColors, interpolation='nearest')
+        pylab.axis('tight')
+        if xStart==.1:
+            pylab.yticks(range(len(subs)), subs)
+        else:
+            pylab.yticks([])
+        xStart+=xDelta*xWidth+xSpace
+
+        pylab.ylim(-.5, len(subs)-.5)
+        pos, labels=pylab.xticks()
+        labels=np.round(np.asarray(snpLocs[::len(snpLocs)/(len(labels)-3)])/1e6)
+        pylab.xticks(pos[1:-1], labels.astype(np.int))
+        pylab.xlabel('Position [Mb]')
+        pylab.title('chrom %s' %chrom)
+        pylab.axes([.85, .1, .13, .85])
+        y=0
+        for i, label in enumerate(params['labels']):
+            pylab.scatter(0,y, s=40, c=params['rgb'][i], linewidth=0)
+            pylab.text(0+.5, y, label, fontsize=8, verticalalignment='center')
+            y+=1;
+        pylab.axis([-0.5, 8, -.3, len(params['labels'])-.5])
     pylab.axis('off')
     pylab.show()
 
@@ -216,16 +319,16 @@ if __name__ == '__main__':
     if DEBUG:
         print "CmdLine Options Parameters",params
         print "Running SVM with the following options",params['fileNames'], params['nGens'], params['win'], params['chrom']
-    
-    subs, snpNames, snpLocs, admixedClassPre, admixedClass,p = runSVM(params)
-    
-    saveFiles(params, subs, snpNames, snpLocs, admixedClass, p)
-    #output results
-    for i, pop in enumerate(params['fileNames'][:-1]):
-        pop=os.path.split(pop)[-1]
-        sys.stdout.write('Pop %s: %2.2g%%\n' %(pop, 100*np.sum(admixedClass.flatten()==i)/float(np.prod(admixedClass.shape))))
-    bp, gm=winSizeBPandCM(snpLocs, params['win'], params['chrom'])
-    sys.stdout.write('Mean window size: %i+/-%i bp, %2.2g+/-%2.2g cM\n' %(bp.mean(), bp.std(), gm.mean(), gm.std()))
-    if params['correctFile']:accuracySummary(params['correctFile'], params['saveFile']+".tped")
-    if params['doPlot']: plotResults(params, subs, snpNames, snpLocs, admixedClass, p)
+
+    results=map(lambda chrom: runSVM(params, chrom), params['chrom'])
+    saveFiles(params, results)
+    summarizeResults(params, results)
+    bp, gm=winSizeBPandCM(results, params['win'])
+
+    sys.stdout.write('Mean window size: %i+/-%i bp, %2.2g+/-%2.2g cM\n' %(np.mean(bp), np.std(bp), np.mean(gm), np.std(gm)))
+    if params['correctFile']:accuracySummary(params, results)
+    if params['doPlot']: plotResults(params, results)
     supportConfig.writeConfigFile(rawConfiguration,params['saveFile']+'.cfg')
+
+
+
