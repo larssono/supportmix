@@ -75,7 +75,7 @@ def determineChromosome(fileNames):
     Parameters:
     - `fileNames` - List of fileNames
     """
-    import re 
+    import re
     p = re.compile('chr\d*', re.IGNORECASE)
     try:
         found=[p.search(name).group() for name in fileNames]

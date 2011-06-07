@@ -103,7 +103,7 @@ def runSVM(params, chrom,  svmC=100):
                 snpLocations.append(float(snpInfo[1]))
                 vals.append(fileReader.nucleotides2Haplotypes(sum(snps, []), False))
             else:
-                if snpInfo[0]<chrom:  continue  #Read past earlier chromosomes 
+                if snpInfo[0]<chrom:  continue  #Read past earlier chromosomes
                 elif snpInfo[0]>chrom: fileDone=True; break  #Finnished when read past chrom
                 elif snpInfo[0]==chrom:
                     snpNames.append(snpInfo[1])
@@ -201,7 +201,7 @@ def saveFiles(params, results):
           - `p`: matrix of posterior probabiltity for each classified loci
           - `chrom`: chromsome name
     """
-    #save tfam file 
+    #save tfam file
     admixedClass=results[0][5]
     subjects=results[0][0]
     nSubs=admixedClass.shape[1]

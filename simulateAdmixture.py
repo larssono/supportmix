@@ -44,14 +44,14 @@ def poissonMultiMating(pops, snpPos, mapFile, nGens, percentPop1=0.5):
     #Determine probabilites of differen ancestral populations
     alphas=np.ones(nPops)*(1-percentPop1)/(nPops-1)
     alphas[0]=percentPop1
-    print alphas, 
+    print alphas,
     #Step through each offspring and assign haploid genomes
     for i in range(nOffspring):
         recombPos=gmPos[dM>np.random.uniform(size=len(gmPos)-1)] #Determine bp positions of recomb.
         j=0
         for pos in recombPos:  #Step through locations where switch happens
             origin=np.nonzero(np.random.uniform()<=np.cumsum(alphas))[0].min() #0=pop1, 1=pop2 ...
-            while gmPos[j]<pos: 
+            while gmPos[j]<pos:
                 outPop[j, i] = pops[origin][j,i]
                 outPopOrig[j,i]=origin
                 j+=1
@@ -122,7 +122,7 @@ def readFiles(files, fileType='beagle', chrom=None):
 
 
 def permuteIdx(n, nOffspring):
-    """Permutes the order of indexes 
+    """Permutes the order of indexes
     
     Arguments:
     - `n`: number of samples to be permuted
