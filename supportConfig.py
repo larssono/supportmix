@@ -110,7 +110,7 @@ def getConfigOptions(configFile):
     config=readConfig(configFile)
     configData={}
     if config.has_option('parameters', 'chromosome'):
-        configData['chrom']=config.getint('parameters', 'chromosome')
+        configData['chrom']=config.get('parameters', 'chromosome')
     else:
         configData['chrom']=CHROM
     if config.has_option('parameters', 'window'):
@@ -131,6 +131,7 @@ def getConfigOptions(configFile):
         configData['nParallel']=config.get('parameters','parallel')
     else:
         configData['nParallel']=None
+        
     if config.has_option('parameters','mapDir'):
         configData['mapDir']=config.get('parameters','mapDir')
     else:
@@ -197,7 +198,7 @@ def getConfigOptions(configFile):
             configData['doPlot']=True
         else:
             configData['labels']=None
-        
+    if DEBUG: print "DATA PASSED FROM FILE",configData    
     return configData
 
 def writeConfigFile(configData,configFileName='outSupportMix.cfg'):
