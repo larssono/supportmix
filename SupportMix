@@ -169,6 +169,7 @@ def accuracySummary(params, results):
     totalNPCut=np.zeros(len(pCutoffs))
     for  subs, snpNames, snpLocs, mapLocs, admixedClassPre, admixedClass,p,chrom in results:
         chromIdx=np.nonzero(correctChroms==chrom)[0]
+        if len(chromIdx)==0: supportConfig.fail('--ancestryFile parameter does not match any positions in data.  Was the right chromosome specified?')
         idx=chromIdx[(correctRsIds[chromIdx]==snpNames)]
         admixed=np.repeat(admixedClass, winSize, axis=0)[:len(idx),:]  #make admixed right size
         pVals=np.repeat(p, winSize, axis=0)[:len(idx),:]               #make p values right size
