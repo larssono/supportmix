@@ -33,8 +33,8 @@ including chr[0-9]* in the name.
 
 
 def fail(str):
-    sys.stderr.write('Usage: ')
-    sys.stderr.write(USAGE)
+    # sys.stderr.write('Usage: ')
+    # sys.stderr.write(USAGE)
     sys.stderr.write('\nERROR: %s\n\n' %str)
     sys.exit(1)
 
@@ -283,8 +283,8 @@ def getParameters(rawConfiguration):
     rawConfiguration['rgb']=CONFIGFILE
     rawConfiguration['configFile']=LABELS
     rawConfiguration['isBeagle']=IS_BEAGLE
-    rawConfiguration['nParallel']=MAP_DIR
-    rawConfiguration['mapDir']=N_PARALLEL
+    rawConfiguration['nParallel']=N_PARALLEL
+    rawConfiguration['mapDir']=MAP_DIR
 
     #Command Line parsing of parameters
     parser = OptionParser(usage=USAGE)
@@ -357,11 +357,13 @@ def getParameters(rawConfiguration):
     if params['chrom']==None:
         if params['isBeagle']: #Use filenames to guess the chromsome used or do all of them
             params['chrom']=[determineChromosome(params['fileNames']).replace('chr','')]
-            warn('No chromosome was specified assuming: %s\n'%params['chrom'])
+            warn('No chromosome was specified assuming: %s\n'%', '.join(params['chrom']))
         else:
             params['chrom']=determineAllChromosomes(params['fileNames'])
     else:
         params['chrom']=[params['chrom']]
+    if params['isBeagle'] and params['mapDir'] == None:
+        fail('To examine simplified haplotype files you need to supply a map file directory')
     if params['rgb']!=None:
         params['rgb']=validateColors(params['rgb'])
         params['doPlot']=True
