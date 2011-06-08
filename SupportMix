@@ -327,7 +327,10 @@ if __name__ == '__main__':
     bp, gm=winSizeBPandCM(results, params['win'])
 
     sys.stdout.write('Mean window size: %i+/-%i bp, %2.2g+/-%2.2g cM\n' %(np.mean(bp), np.std(bp), np.mean(gm), np.std(gm)))
-    if params['correctFile']:accuracySummary(params, results)
+    try:
+        if params['correctFile']:accuracySummary(params, results)
+    except:
+        supportConfig.fail('Error in determining accuracy.  Please verify format of %s' %params['correctFile'])
     if params['doPlot']: plotResults(params, results)
     supportConfig.writeConfigFile(rawConfiguration,params['saveFile']+'.cfg')
 
