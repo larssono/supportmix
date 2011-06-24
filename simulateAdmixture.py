@@ -85,7 +85,7 @@ def saveTped(filename, subjectNames, snpNames, snpPos, mapPos, snpVals, chrom):
             tFamFp.write("%s\n"%pedPadding%subject.replace('_a', ''))
     with open(filename+'.tped', 'w') as fp:
         for i, (rsId, rsPos, rsMap) in enumerate(zip(snpNames, snpPos, gmPos)):
-            fp.write('%s %s %0.5g %i' %(chrom, rsId, rsMap, rsPos))
+            fp.write('%s %s %0.12g %i' %(chrom, rsId, rsMap, rsPos))
             fp.write(' %s'*nSubs %tuple(snpVals[i, :]))
             fp.write('\n')
 
@@ -154,7 +154,7 @@ if __name__ == '__main__':
     parser.add_option('-a', '--alpha', type='float', dest='alpha', default=.5,
                       help='Ratio of populations', metavar='N')
     parser.add_option('-f', '--fileType', type='str', dest='fileType', default='beagle',
-                      help='Input Filetype, can be either phase or tped')
+                      help='Input Filetype, can be either "beagle" or "tped"')
     parser.add_option('--geneticMap', type='str', dest='geneticMapFile', default=None,
                       help='genetic map for specified chromosome')
     (options, args) = parser.parse_args()
@@ -164,7 +164,7 @@ if __name__ == '__main__':
         options.saveFiles=['anc%i_chr%s'%(i+1, options.chrom) for i in range(len(fileNames))]
         options.saveFiles.append('admixed_chr%s'%options.chrom)
     if options.fileType not in ['beagle', 'tped']:
-        sys.stderr.write('Input file has to be in plink tped or simplified haplotype format')
+        sys.stderr.write('Input files has to be in plink "tped" or "beagle" meaning simplified haplotype format')
         sys.exit(1)
     if options.geneticMapFile==None: #and options.fileType=='beagle':
         options.geneticMapFile=F_GM%options.chrom
@@ -179,10 +179,10 @@ if __name__ == '__main__':
     mateSubjects=[subjects[i][index[:options.nOffspring]] for i, index in enumerate(indexes)]
     ancestralPops=[pops[i][:, index[options.nOffspring:]] for i, index in enumerate(indexes)]
     ancestralSubjects=[subjects[i][index[options.nOffspring:]] for i, index in enumerate(indexes)]
+
     #Running the mating
     admixedPop, admixedOrigin, gmPos=poissonMultiMating(matePairs, snpPos, options.geneticMapFile,
                                                         options.nGens, percentPop1=options.alpha)
-
 
     #Save populations
     for i in range(len(nPops)):

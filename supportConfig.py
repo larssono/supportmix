@@ -24,11 +24,7 @@ N_PARALLEL=None
 
 USAGE="""SupportMix [options] ancestralFile1 ancestralFile2 [...] admixedFile
 
-where the ancestralFiles and admixedFiles are contain phased samples
-in tab delimited format snps in rows and samples in columns.  One row
-of column headers and two columns of header information (i.e. rsId and
-position).  The files have to be from the same chromosome indicated by
-including chr[0-9]* in the name.
+where the ancestralFiles and admixedFiles are phased tped files.
 """
 
 

@@ -184,7 +184,7 @@ def accuracySummary(params, results):
     for i, pCut in enumerate(pCutoffs):
         sys.stdout.write(' p>%0.2g(N=%0.2g%%): %0.3g ' % (pCut, 100*totalNPCut[i]/float(totalN.sum()), 100*totalCorrectPCut[i]/float(totalNPCut[i])))
     sys.stdout.write(')\n')
-
+    return 100*np.mean(totalCorrect/totalN), 100*np.std(totalCorrect/totalN)
 
 def saveFiles(params, results):
     """Saves two tped files and a tfam file of the ancestry classifications
@@ -328,7 +328,8 @@ if __name__ == '__main__':
 
     sys.stdout.write('Mean window size: %i+/-%i bp, %2.2g+/-%2.2g cM\n' %(np.mean(bp), np.std(bp), np.mean(gm), np.std(gm)))
     try:
-        if params['correctFile']:accuracySummary(params, results)
+        if params['correctFile']:
+            mean, std=accuracySummary(params, results)
     except:
         supportConfig.fail('Error in determining accuracy.  Please verify format of %s' %params['correctFile'])
     if params['doPlot']: plotResults(params, results)
