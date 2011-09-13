@@ -11,7 +11,7 @@ import regionClassifier
 import fileReader
 
 CHROM=1
-DATADIR='/home/lom/current_projects/human_genome_data/HumanPhasedData/pygmy_bantu_tishkoff/'
+DATADIR='/Users/lom/Documents/current_projects/human_genome_data/HumanPhasedData/pygmy_bantu_tishkoff/'
 LEMANDE =DATADIR+'bantu_lemande.chr%i.bgl.phased.gz'    
 NGUMBA  =DATADIR+'bantu_ngumba.chr%i.bgl.phased.gz'     
 TIKAR_S =DATADIR+'bantu_tikar_south.chr%i.bgl.phased.gz'
@@ -20,22 +20,36 @@ BAKOLA  =DATADIR+'pygmy_bakola.chr%i.bgl.phased.gz'
 BEDZAN  =DATADIR+'pygmy_bedzan.chr%i.bgl.phased.gz'     
 MAPFILES=DATADIR+'../../hapmap2/genetic_map_chr%i_b36.txt'
 
-def readFiles(fileNames):    
+def readFiles(fileNames, isBeagle=True):
     snpNames=[]
     snpLocations=[]  #stores physical location from files
     vals=[]          #Stores Values of genotypes
-    files=fileReader.concurrentFileReader(*fileNames, key=0)
-    subjects=files.next()[0]
+
+    if isBeagle:
+        files=fileReader.concurrentFileReader(*fileNames, key=0)
+        subjects=files.next()[0]
+    else:
+        tfams=[f.replace('.tped', '.tfam') for f in fileNames]
+        tfams=[fileReader.openfile(f) for f in tfams]
+        subjects=[]
+        for f in tfams:
+            subs=[[l.split(None, 2)[1]+'_a',l.split(None, 2)[1]+'_b']  for l in f]
+            subjects.append(np.asarray(sum(subs, [])))
+        files=fileReader.concurrentFileReader(*fileNames, nHeaders=0, key=[0,1], nLabels=4)
     labels=np.asarray(sum([[i]*len(sub) for i, sub in enumerate(subjects)], []))
-    for i, ([snpName, snpLocation], snps) in enumerate(files):
-        snpLocations.append(float(snpLocation))
-        snpNames.append(snpName)
+    for i, (snpInfo,snps) in enumerate(files):
+        if isBeagle:
+            snpLocations.append(float(snpInfo[1]))
+            snpNames.append(snpInfo[0])
+        else:
+            snpLocations.append(float(snpInfo[3]))
+            snpNames.append(snpInfo[1])
         vals.append(fileReader.nucleotides2Haplotypes(sum(snps, [])))
     vals=np.asarray(vals).T
     snpLocations=np.asarray(snpLocations)
     return subjects, labels, snpNames, snpLocations, vals
 
-    
+
 def plotPCA(vals, labels):
     """Calculate PCA and plot top PCs."""
     [u,s,vt]=svd(vals.T,0)
@@ -186,14 +200,18 @@ winSize=50; nAncestral=72; nGens=20; winStep=winSize
 fileNames=[LEMANDE, NGUMBA, TIKAR_S, BAKOLA, BAKA, BEDZAN]
 alphaFile='pygmy_bantu_alphas.txt'
 saveFile='pygmy_admixture_72b'
-# winSize=100; nAncestral=30; nGens=8; winStep=100
-# fileNames=['tmp/ancestral_ceu.chr%i.csv','tmp/admixed_ceu_yri.chr%i.csv']    
-# alphaFile='tmp/admixed_ceu_yri.alpha.chr22.csv'
-# correctFile='tmp/admixed_ceu_yri_origin.chr22.csv'
+
+# #####################################
+# #Simulated parameters
+# chroms=[22]
+# winSize=75; nAncestral=25; nGens=10; winStep=winSize; saveFile='skit'
+# fileNames=['sims_for_tishkoff/one_yri_chr%i.tped.gz', 'sims_for_tishkoff/one_yri_ceu_chr%i.tped.gz']
+# correctFile='sims_for_tishkoff/one_yri_ceu_chr22_origin.tped.gz'
+# fileNames=['sims_for_tishkoff/two_yri_chr%i.tped.gz', 'sims_for_tishkoff/two_yri_mkk_chr%i.tped.gz']
+# correctFile='sims_for_tishkoff/two_yri_mkk_chr22_origin.tped.gz'
 
 classifier=pymvpa.LinearCSVMC(C=10)
 cvte=pymvpa.CrossValidation(classifier, pymvpa.NGroupPartitioner(3, attr='runtype'))
-alphas=[1-float(f.strip().split()[-1]) for f in open(alphaFile)]
 
 #Read results
 #allAdmixedClass, allAdmixedP, allSNPLocations, allSNPNames=readResults(saveFile)
@@ -205,7 +223,7 @@ allSNPNames=[]
 
 #Run the ancestry assignemts
 for CHROM in chroms:
-    subjects, labels, snpNames, snpLocations, vals=readFiles([f%CHROM for f in fileNames])
+    subjects, labels, snpNames, snpLocations, vals=readFiles([f%CHROM for f in fileNames], True)
     origLabels=labels.copy()
     # #crappy filter ################################
     # idxT=np.array([ True,  True,  True,  True,  True,  True,  True,  True,  True, True,  True,  True,  True,  True,  True,  True,  True,  True,        True,  True, False, False,  True,  True,  True,  True,  True,        True,  True,  True,  True,  True,  True,  True,  True,  True,        True,  True,  True,  True,  True,  True,  True,  True,  True,        True,  True,  True,  True,  True,  True,  True,  True,  True,        True,  True,  True,  True,  True,  True,  True,  True,  True,        True,  True,  True,  True,  True,  True,  True,  True,  True,        True,  True,  True,  True,  True,  True,  True,  True,  True,        True,  True,  True,  True,  True,  True,  True,  True,  True,        True,  True,  True,  True,  True,  True,  True,  True,  True,        True,  True,  True,  True,  True,  True,  True,  True,  True,        True,  True,  True,  True,  True,  True,  True,  True,  True,        True,  True,  True,  True,  True,  True,  True,  True,  True,        True,  True,  True,  True,  True,  True,  True,  True,  True,        True,  True,  True,  True,  True,  True,  True,  True,  True,        True,  True,  True,  True,  True,  True,  True,  True,  True,        True,  True,  True,  True,  True,  True,  True,  True,  True,        True,  True,  True,  True,  True,  True,  True,  True,  True,        True,  True,  True,  True,  True,  True,  True,  True,  True,        True,  True,  True,  True,  True,  True,  True,  True,  True,        True,  True,  True,  True,  True,  True,  True,  True,  True,        True,  True,  True,  True,  True,  True,  True,  True, False,       False,  True,  True,  True,  True,  True,  True,  True,  True,        True,  True,  True,  True,  True,  True,  True,  True,  True,        True,  True,  True,  True,  True,  True,  True,  True,  True,        True,  True,  True,  True, False, False,  True,  True,  True,        True,  True,  True,  True,  True,  True,  True], dtype=bool)
@@ -268,110 +286,125 @@ for CHROM in chroms:
 #Save output in tped plink files
 saveTPedFile(saveFile, winSize, chroms, np.hstack(subjects[3:]), allSNPNames, allSNPLocations, allAdmixedClass,allAdmixedP)
 
-#Plot results of multiple Chromsomes
-pylab.figure(figsize=(19.5,5))
-nPygmy=allAdmixedClass[0].shape[1]
-nWins=[x.shape[0] for x in allAdmixedClass]
-xStart=0.03; totalWidth=.85; yStart=0.28; totalHeight=.63
-for i, CHROM in enumerate(chroms):
-    admixedClass=allAdmixedClass[i]
-    p=allAdmixedP[i]
-    nWin=nWins[i]
-    snpLocations=allSNPLocations[i]
-    xWidth=totalWidth*(nWin/float(np.sum(nWins)))
-    pylab.axes([xStart, yStart, xWidth, totalHeight])
-    pylab.imshow(((admixedClass*2-1)*p).T, interpolation='nearest', cmap=pylab.cm.RdBu)
-    pylab.axis('tight');     pylab.title('%i' %CHROM, fontsize=9)
-    xtickPos=np.asarray([3, round(nWin/2), nWin-3], np.int)
-    pylab.axis('off'); 
-    if xStart==0.03:
-        pylab.axis('on'); pylab.xticks([]); 
-        pylab.yticks([0, 24,58,83,108,121,134], ['|', 'Bakola', '|','Baka','|','Bedzan', '|'], fontsize=9, rotation=90)
-    pylab.axes([xStart, 0.08, xWidth, .18])  #Average Pygmy Ancestry
-    pylab.plot(admixedClass.mean(1))
-    pylab.ylim([0.5, 1]); pylab.xlim(0, p.shape[0]); pylab.yticks([])
-    pylab.xticks(xtickPos, np.asarray(np.round(snpLocations[::winStep][xtickPos]/1e6), np.int), fontsize=6)
-    if xStart==0.03:
-        pylab.yticks([.5,1], fontsize=8); pylab.ylabel('Percent Pygmy', fontsize=8);
-    if xStart>0.47 and xStart<0.5:
-        pylab.xlabel('Position [Mb]', fontsize=8)
-    pylab.draw()
-    xStart+=(xWidth+0.002)
-# #Plot average Pygmy Ancestry per sample
-# pylab.axes([0.92, 0.29, .07, .52]) 
-# pylab.plot(np.vstack(allAdmixedClass).mean(0), range(nPygmy)); pylab.ylim(nPygmy, 0); pylab.yticks([]); pylab.title('Percent Pygmy'); pylab.xlim(0,1); pylab.xticks([0,.5,1], fontsize=8)
-# pylab.plot(alphas, range(nPygmy)); pylab.ylim(nPygmy, 0); pylab.yticks([]); pylab.title('Percent Pygmy', fontsize=8); pylab.xlim(0,1); pylab.xticks([0,.5,1])
-#Colorbar
-pylab.axes([0.88, .08, .06, .9]);  pylab.xlim(-1, 1); pylab.ylim(-1, 1); pylab.axis('off')
-cbar=pylab.colorbar(fraction=.1, ticks=[-1, -0.5,  0, 0.5, 1])
-cbar.ax.set_yticklabels(['1.0 Bantu', '0.5', '0', '0.5', '1.0 Pygmy'], fontsize=6)
-pylab.suptitle('Chromosomes')
+if len(fileNames)==6:
+    #plot results of multiple Chromsomes
+    pylab.figure(figsize=(19.5,5))
+    nPygmy=allAdmixedClass[0].shape[1]
+    nWins=[x.shape[0] for x in allAdmixedClass]
+    xStart=0.03; totalWidth=.85; yStart=0.28; totalHeight=.63
+    for i, CHROM in enumerate(chroms):
+        admixedClass=allAdmixedClass[i]
+        p=allAdmixedP[i]
+        nWin=nWins[i]
+        snpLocations=allSNPLocations[i]
+        xWidth=totalWidth*(nWin/float(np.sum(nWins)))
+        pylab.axes([xStart, yStart, xWidth, totalHeight])
+        pylab.imshow(((admixedClass*2-1)*p).T, interpolation='nearest', cmap=pylab.cm.RdBu)
+        pylab.axis('tight');     pylab.title('%i' %CHROM, fontsize=9)
+        xtickPos=np.asarray([3, round(nWin/2), nWin-3], np.int)
+        pylab.axis('off'); 
+        if xStart==0.03:
+            pylab.axis('on'); pylab.xticks([]); 
+            pylab.yticks([0, 24,58,83,108,121,134], ['|', 'Bakola', '|','Baka','|','Bedzan', '|'], fontsize=9, rotation=90)
+        pylab.axes([xStart, 0.08, xWidth, .18])  #Average Pygmy Ancestry
+        pylab.plot(admixedClass.mean(1))
+        pylab.ylim([0.5, 1]); pylab.xlim(0, p.shape[0]); pylab.yticks([])
+        pylab.xticks(xtickPos, np.asarray(np.round(snpLocations[::winStep][xtickPos]/1e6), np.int), fontsize=6)
+        if xStart==0.03:
+            pylab.yticks([.5,1], fontsize=8); pylab.ylabel('Percent Pygmy', fontsize=8);
+        if xStart>0.47 and xStart<0.5:
+            pylab.xlabel('Position [Mb]', fontsize=8)
+        pylab.draw()
+        xStart+=(xWidth+0.002)
+    # #Plot average Pygmy Ancestry per sample
+    # pylab.axes([0.92, 0.29, .07, .52]) 
+    # pylab.plot(np.vstack(allAdmixedClass).mean(0), range(nPygmy)); pylab.ylim(nPygmy, 0); pylab.yticks([]); pylab.title('Percent Pygmy'); pylab.xlim(0,1); pylab.xticks([0,.5,1], fontsize=8)
+    # pylab.plot(alphas, range(nPygmy)); pylab.ylim(nPygmy, 0); pylab.yticks([]); pylab.title('Percent Pygmy', fontsize=8); pylab.xlim(0,1); pylab.xticks([0,.5,1])
+    #Colorbar
+    pylab.axes([0.88, .08, .06, .9]);  pylab.xlim(-1, 1); pylab.ylim(-1, 1); pylab.axis('off')
+    cbar=pylab.colorbar(fraction=.1, ticks=[-1, -0.5,  0, 0.5, 1])
+    cbar.ax.set_yticklabels(['1.0 Bantu', '0.5', '0', '0.5', '1.0 Pygmy'], fontsize=6)
+    pylab.suptitle('Chromosomes')
 
 
 # If simulated data calculate Success Rate
 if locals().get('correctFile'):
-    correct=np.array([l.split()[2:] for l in fileReader.openfile(correctFile).readlines()[1:]], np.float)
+    correct=np.array([l.split()[4:] for l in fileReader.openfile(correctFile).readlines()[1:]], np.float)
     svmClass=np.repeat(admixedClassPre, winSize, 0)
     hmmClass=np.repeat(admixedClass, winSize, 0)
     svmSuccess=100-sum(abs(svmClass[:len(correct),:]-correct))/len(correct)*100
     hmmSuccess=100-sum(abs(hmmClass[:len(correct),:]-correct))/len(correct)*100
     print 'Correct %0.3g +/- %0.2g (%0.3g +/- %0.2g)' %(np.mean(hmmSuccess), np.std(hmmSuccess), np.mean(svmSuccess), np.std(svmSuccess))
-    pylab.figure();
-    pylab.subplot(2,1,1);
-    pylab.imshow(((admixedClass*2-1)*p).T, interpolation='nearest', cmap=pylab.cm.copper, vmin=0, vmax=2)
-    pylab.ylabel('Sample '); pylab.yticks([]); pylab.xticks([]); pylab.axis('tight'); pylab.title('Estimat')
-    pylab.subplot(2,1,2);
-    pylab.imshow(correct[:, :].T, interpolation='nearest', cmap=pylab.cm.copper, vmin=0, vmax=2)
-    pylab.ylabel('Sample');pylab.yticks([]); pylab.xticks([])
-    pylab.xlabel('Position along %s' %CHROM);  pylab.axis('tight'); pylab.title('True ancestry')
+    # pylab.figure();
+    # pylab.subplot(2,1,1);
+    # pylab.imshow(((admixedClass*2-1)*p).T, interpolation='nearest', cmap=pylab.cm.copper, vmin=0, vmax=2)
+    # pylab.ylabel('Sample '); pylab.yticks([]); pylab.xticks([]); pylab.axis('tight'); pylab.title('Estimat')
+    # pylab.subplot(2,1,2);
+    # pylab.imshow(correct[:, :].T, interpolation='nearest', cmap=pylab.cm.copper, vmin=0, vmax=2)
+    # pylab.ylabel('Sample');pylab.yticks([]); pylab.xticks([])
+    # pylab.xlabel('Position along %s' %CHROM);  pylab.axis('tight'); pylab.title('True ancestry')
 
-pylab.show()
 
 #############################################################
 # Addendum code
 #############################################################
 
-#########################################
-#compare to structure
-pylab.figure()
-pylab.plot(np.vstack(allAdmixedClass).mean(0)); 
-pylab.plot(alphas); 
-pylab.xlim(134, 0); 
-pylab.xticks([0, 24,58,83,108,121,134], ['|', 'Bakola', '|','Baka','|','Bedzan', '|'], fontsize=10)
-pylab.title('Percent Pygmy'); 
-pylab.ylim(0,1.01); pylab.yticks([0,.5,1], fontsize=10); 
-pylab.legend(['SupportMix', 'STRUCTURE'], 4)
+
+if len(fileNames)==6:
+    #########################################
+    #compare to structure
+    alphas=[1-float(f.strip().split()[-1]) for f in open(alphaFile)]
+    pylab.figure()
+    pylab.plot(np.vstack(allAdmixedClass).mean(0)); 
+    pylab.plot(alphas); 
+    pylab.xlim(134, 0); 
+    pylab.xticks([0, 24,58,83,108,121,134], ['|', 'Bakola', '|','Baka','|','Bedzan', '|'], fontsize=10)
+    pylab.title('Percent Pygmy'); 
+    pylab.ylim(0,1.01); pylab.yticks([0,.5,1], fontsize=10); 
+    pylab.legend(['SupportMix', 'STRUCTURE'], 4)
+
+    ###########################
+    # Count ancestry track length and plot
+    pylab.figure()
+    ones=[]
+    twos=[]
+    for chrom in chroms:#[2]:
+        chrom-=min(chroms)
+        admixedClass=allAdmixedClass[chrom]
+        snpPos=allSNPLocations[chrom][::winSize]
+        state=admixedClass[0,:]
+        starts=np.tile(int(snpPos[0]), 134)
+        ends=int(snpPos[0])
+        for i in range(admixedClass.shape[0]): # range(396, 500):
+            changed=state!=admixedClass[i,:]
+            if np.any(changed):
+                ones.extend(ends-starts[np.logical_and(state==0,changed)])
+                twos.extend(ends-starts[np.logical_and(state==1,changed)])
+                #divide above into ones and zeros
+                starts[changed]=int(snpPos[i])
+                state=admixedClass[i,:]
+            ends=int(snpPos[i])
+
+    pylab.hist(ones, np.logspace(4,8, 80), histtype='step', normed=False); pylab.xscale('log')
+    pylab.hist(twos, np.logspace(4,8, 80), histtype='step', normed=False); pylab.xscale('log')
+    pylab.legend(['Bantu', 'Pygmy'])
+    pylab.xlabel('Length [bp]')
+    pylab.xlabel('Length [bp]')
+    pylab.ylabel('Normalized number of segmensts')
 
 ###########################
-# Count ancestry track length and plot
+# Plot simulated results
+results=np.asarray([[94.7, 93],
+                    [80.9, 65.8]])
+errors=np.asarray([[3.1, 4.6],
+                  [10, 17]])
 pylab.figure()
-ones=[]
-twos=[]
-for chrom in chroms:#[2]:
-    chrom-=min(chroms)
-    admixedClass=allAdmixedClass[chrom]
-    snpPos=allSNPLocations[chrom][::winSize]
-    state=admixedClass[0,:]
-    starts=np.tile(int(snpPos[0]), 134)
-    ends=int(snpPos[0])
-    for i in range(admixedClass.shape[0]): # range(396, 500):
-        changed=state!=admixedClass[i,:]
-        if np.any(changed):
-            ones.extend(ends-starts[np.logical_and(state==0,changed)])
-            twos.extend(ends-starts[np.logical_and(state==1,changed)])
-            #divide above into ones and zeros
-            starts[changed]=int(snpPos[i])
-            state=admixedClass[i,:]
-        ends=int(snpPos[i])
+dataPlot.bar_w_error(results, errors, ['SupportMix', 'LAMPANC'])
+pylab.xticks([0.4,1.4], ['YRI-CEU', 'YRI-MKK'])
+pylab.xlim(-.1, 1.9)
+pylab.ylabel('Percent correctly classified loci')
+pylab.show()
 
-pylab.hist(ones, np.logspace(4,8, 80), histtype='step', normed=True); pylab.xscale('log')
-pylab.hist(twos, np.logspace(4,8, 80), histtype='step', normed=True); pylab.xscale('log')
-pylab.legend(['Bantu', 'Pygmy'])
-pylab.xlabel('Length [bp]')
-pylab.xlabel('Length [bp]')
-pylab.ylabel('Normalized number of segmensts')
-
-adsf
 
 #########################################
 #Plot specific chromome with ancestry averages
