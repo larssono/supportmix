@@ -1,5 +1,6 @@
 import sys; sys.path.append('../')
 import re, os, glob, cPickle, regionClassifier, numpy as np, fileReader, time, runLamp
+import popgen
 from variables import *
 
 def success(originFile, admixedClassPre, admixedClass, winSize=WINSIZE):
@@ -21,7 +22,7 @@ def readFst():
     fp.close()
     return fst
     
-def classify(fileNames, smoother, classifier=regionClassifier.SVMpymvpa(C), win_size=100):
+def classify(fileNames, smoother, classifier=regionClassifier.SVMpymvpa(C), win_size=100, CHR='chr1'):
     """Deconvolves ancestry in last file based on ancestral
     populations in first files.
     Arguments:
@@ -61,7 +62,11 @@ def classify(fileNames, smoother, classifier=regionClassifier.SVMpymvpa(C), win_
         if i<win_size-1:
             break
     admixedClassPre=np.array(admixedClass)
-    admixedClass, p=smoother(np.hstack(snpLocations), ancestralSuccess, admixedClassPre)
+
+    #Figure out mapLocations
+    gm=popgen.geneticMap('data/hapmap2/genetic_map_%(CHR)s_b36.txt'%locals())
+    mapLocations=gm.pos2gm(np.hstack(snpLocations))
+    admixedClass, p=smoother(mapLocations, ancestralSuccess, admixedClassPre)
     return  admixedClassPre, admixedClass, p, subjects[-1], snpLocations, snpNames
 
 
@@ -78,7 +83,7 @@ if __name__ == '__main__':
     #Run all 2-way
     ####################################
     twoPopResults=results(WINSIZE, NGENS)
-    smoother=regionClassifier.hmmFilter(geneticMapFile=GM_FILE,nGens=NGENS,nClasses=2)
+    smoother=regionClassifier.hmmFilter(WINSIZE,nGens=NGENS,nClasses=2)
     print NGENS, WINSIZE, C
     for pop1 in pops:
         for pop2 in pops:
@@ -87,7 +92,7 @@ if __name__ == '__main__':
             t0=time.time()
             originFile=FILE2ADMPOPSORIGIN%(pop1, pop2) + '.gz'
             fileNames=[FILEANCESTRAL%pop1+'.gz', FILEANCESTRAL%pop2+'.gz', admixedFile]
-            admClassPre, admClass, p, subs, snpLocations, snpNames = classify(fileNames, smoother, classifier, WINSIZE)
+            admClassPre, admClass, p, subs, snpLocations, snpNames = classify(fileNames, smoother, classifier, WINSIZE, CHR)
             hmmSuccess, hmmStd, svmSuccess, svmStd =success(originFile, admClassPre, admClass)
             twoPopResults.append([pop1, pop2], fst[pop1][pop2], [hmmSuccess, hmmStd], p, admClass)
             print '%i:%i\t%s-%s\t%0.3g\t%0.3g' %((time.time()-t0)/60, (time.time()-t0)%60, pop1, pop2, fst[pop1][pop2], hmmSuccess)
@@ -119,7 +124,7 @@ if __name__ == '__main__':
     ####################################
     print '\nThree populations'
     threePopResults=[results(WINSIZE, NGENS), results(WINSIZE, NGENS)]
-    smoother=regionClassifier.hmmFilter(geneticMapFile=GM_FILE,nGens=NGENS,nClasses=3)
+    smoother=regionClassifier.hmmFilter(WINSIZE,nGens=NGENS,nClasses=3)
     for pop1 in pops:
         popNames=[['yoruba', 'french', pop1],['yoruba', 'bedouin', pop1]]
         admixedFile=[FILE3ADMPOPSCEUYRI%pop1+'.gz', FILE3ADMPOPSYORBED%pop1+'.gz']
@@ -128,7 +133,7 @@ if __name__ == '__main__':
             if not  os.path.isfile(admixedFile[i]): continue  #If file does not exist
             t0=time.time()
             fileNames=[FILEANCESTRAL%anc1+'.gz', FILEANCESTRAL%anc2+'.gz', FILEANCESTRAL%anc3+'.gz', admixedFile[i]]
-            admClassPre, admClass, p, subs, snpLocations, snpNames = classify(fileNames, smoother, classifier, WINSIZE)
+            admClassPre, admClass, p, subs, snpLocations, snpNames = classify(fileNames, smoother, classifier, WINSIZE, CHR)
             hmmSuccess, hmmStd, svmSuccess, svmStd =success(originFiles[i], admClassPre, admClass)
             currFst=min(fst[anc3][anc1], fst[anc3][anc2])
             threePopResults[i].append([anc1,anc2,anc3], currFst, [hmmSuccess, hmmStd], p, admClass)
@@ -148,8 +153,8 @@ if __name__ == '__main__':
             if not  os.path.isfile(admixedFile): continue  #If file does not exist
             fileNames=[FILEANCESTRAL%pop1+'.gz', FILEANCESTRAL%pop2+'.gz', admixedFile]
             originFile=FILEGENSADMIXORIGIN%(pop1, pop2, nGens)+'.gz'
-            smoother=regionClassifier.hmmFilter(geneticMapFile=GM_FILE,nGens=nGens,nClasses=2)
-            admClassPre, admClass, p, subs, snpLocations, snpNames = classify(fileNames, smoother, classifier, WINSIZE)
+            smoother=regionClassifier.hmmFilter(WINSIZE,nGens=nGens,nClasses=2)
+            admClassPre, admClass, p, subs, snpLocations, snpNames = classify(fileNames, smoother, classifier, WINSIZE, CHR)
             hmmSuccess, hmmStd, svmSuccess, svmStd =success(originFile, admClassPre, admClass, WINSIZE)
             twoPopResults.append([pop1, pop2], nGens, [hmmSuccess, hmmStd], p, admClass)
             print '%i:%i\t%s-%s\t%0.3g\t%0.3g' %((time.time()-t0)/60, (time.time()-t0)%60, pop1, pop2, nGens, hmmSuccess)
@@ -160,7 +165,7 @@ if __name__ == '__main__':
     ####################################
     print '\nChanges in alpha'
     twoPopResults=results(WINSIZE, NGENS)
-    smoother=regionClassifier.hmmFilter(geneticMapFile=GM_FILE,nGens=NGENS,nClasses=2)
+    smoother=regionClassifier.hmmFilter(WINSIZE,nGens=NGENS,nClasses=2)
     for pop1, pop2 in POPS:
         for a in ALPHAS:
             t0=time.time()
@@ -168,7 +173,7 @@ if __name__ == '__main__':
             if not  os.path.isfile(admixedFile): continue  #If file does not exist
             fileNames=[FILEANCESTRAL%pop1+'.gz', FILEANCESTRAL%pop2+'.gz', admixedFile]
             originFile=FILEALPHAADMIXORIGIN%(pop1, pop2, NGENS,a)+'.gz'
-            admClassPre, admClass, p, subs, snpLocations, snpNames = classify(fileNames, smoother, classifier, WINSIZE)
+            admClassPre, admClass, p, subs, snpLocations, snpNames = classify(fileNames, smoother, classifier, WINSIZE, CHR)
             hmmSuccess, hmmStd, svmSuccess, svmStd =success(originFile, admClassPre, admClass)
             twoPopResults.append([pop1, pop2], a, [hmmSuccess, hmmStd], p, admClass)
             print '%i:%i\t%s-%s\t%0.3g\t%0.3g' %((time.time()-t0)/60, (time.time()-t0)%60, pop1, pop2, a, hmmSuccess)
@@ -186,8 +191,8 @@ if __name__ == '__main__':
             if not  os.path.isfile(admixedFile): continue  #If file does not exist
             fileNames=[FILEANCESTRAL%pop1+'.gz', FILEANCESTRAL%pop2+'.gz', admixedFile]
             originFile=FILEGENSADMIXORIGIN%(pop1, pop2, 5)+'.gz'
-            smoother=regionClassifier.hmmFilter(geneticMapFile=GM_FILE,nGens=nGens,nClasses=2)
-            admClassPre, admClass, p, subs, snpLocations, snpNames = classify(fileNames, smoother, classifier, WINSIZE)
+            smoother=regionClassifier.hmmFilter(WINSIZE,nGens=nGens,nClasses=2)
+            admClassPre, admClass, p, subs, snpLocations, snpNames = classify(fileNames, smoother, classifier, WINSIZE, CHR)
             hmmSuccess, hmmStd, svmSuccess, svmStd =success(originFile, admClassPre, admClass)
             twoPopResults.append([pop1, pop2], 5/nGens, [hmmSuccess, hmmStd], p, admClass)
             print '%i:%i\t%s-%s\t%0.3g\t%0.3g' %((time.time()-t0)/60, (time.time()-t0)%60, pop1, pop2, 5/nGens, hmmSuccess)
@@ -199,15 +204,15 @@ if __name__ == '__main__':
     ####################################
     print '\nChanges in window size with 5 generations'
     twoPopResults=results(WINSIZE, NGENS)
-    smoother=regionClassifier.hmmFilter(geneticMapFile=GM_FILE,nGens=NGENS,nClasses=2)
     for pop1, pop2 in POPS:
         for winSize in [10, 50, 100, 200, 500, 1000, 2000, 5000]:
+            smoother=regionClassifier.hmmFilter(winSize,nGens=NGENS,nClasses=2)
             t0=time.time()
             admixedFile=FILEGENSADMIX%(pop1, pop2, 5)+'.gz'
             if not  os.path.isfile(admixedFile): continue  #If file does not exist
             fileNames=[FILEANCESTRAL%pop1+'.gz', FILEANCESTRAL%pop2+'.gz', admixedFile]
             originFile=FILEGENSADMIXORIGIN%(pop1, pop2, 5)+'.gz'
-            admClassPre, admClass, p, subs, snpLocations, snpNames = classify(fileNames, smoother, classifier, winSize)
+            admClassPre, admClass, p, subs, snpLocations, snpNames = classify(fileNames, smoother, classifier, winSize, CHR)
             hmmSuccess, hmmStd, svmSuccess, svmStd =success(originFile, admClassPre, admClass, winSize)
             twoPopResults.append([pop1, pop2], winSize, [hmmSuccess, hmmStd], p, admClass)
             print '%i:%i\t%s-%s\t%0.3g\t%0.3g' %((time.time()-t0)/60, (time.time()-t0)%60, pop1, pop2, winSize, hmmSuccess)
@@ -225,10 +230,10 @@ if __name__ == '__main__':
     admixedFile='data/hgdp3/admixed_hgdp_yoruba_bedouin_brahui.chr1.csv.gz'
     fileNames=glob.glob('data/hgdp_ancestral/ancestral_hgdp*')
     fileNames.sort()
-    smoother=regionClassifier.hmmFilter('data/hapmap2/genetic_map_chr1_b36.txt', NGENS, len(fileNames))
+    smoother=regionClassifier.hmmFilter(WINSIZE, NGENS, len(fileNames))
     pops=[file.split('/')[2].replace('ancestral_hgdp_', '').replace('.chr1.csv.gz', '') for file in fileNames]
     fileNames.append(admixedFile)
-    admClassPre, admClass, p, subs, snpLocations, snpNames = classify(fileNames, smoother, classifier, WINSIZE)
+    admClassPre, admClass, p, subs, snpLocations, snpNames = classify(fileNames, smoother, classifier, WINSIZE, CHR)
     print '%i:%i\t' %((time.time()-t0)/60, (time.time()-t0)%60)   
     #Save output
     for i in range(admClass.shape[0]): 

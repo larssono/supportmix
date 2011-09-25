@@ -66,13 +66,17 @@ for i in range(1,23):
     t0=time.time()
     CHR='chr%i' %i
     admixedFile=QATARFILES%locals()
+    #To recreate the results with euqal sized ancestral populations:
+    #1) Run: for l in data/HGDP_raw_data/phasedBeagle/*/*.gz; do zcat $l |cut -d" " -f-20> ${l%.gz}_short; done
+    #2) Replace filenames line below: fileNames=glob.glob('data/HGDP_raw_data/phasedBeagle/*/*%(CHR)s.bgl.phased_short'%locals())
+    #3) Rerun plot results
+    #4) rm  data/HGDP_raw_data/phasedBeagle/*/*short afterwards 
     fileNames=glob.glob('data/HGDP_raw_data/phasedBeagle/*/*%(CHR)s.bgl.phased.gz'%locals())
     fileNames.sort()
-    smoother=regionClassifier.hmmFilter(geneticMapFile='data/hapmap2/genetic_map_%(CHR)s_b36.txt'%locals(),
-                                               nGens=NGENS,nClasses=len(fileNames))
+    smoother=regionClassifier.hmmFilter(winSize=WINSIZE, nGens=NGENS,nClasses=len(fileNames))
     pops=[file.split('/')[3] for file in fileNames]
     fileNames.append(admixedFile)
-    admClassPre, admClass, p, subs, snpLocations, snpNames = classify(fileNames, smoother, classifier, WINSIZE)
+    admClassPre, admClass, p, subs, snpLocations, snpNames = classify(fileNames, smoother, classifier, WINSIZE, CHR)
     print '%s:%i:%i\t' %(CHR, (time.time()-t0)/60, (time.time()-t0)%60)
     #Save output
     for i in range(admClass.shape[0]): 
