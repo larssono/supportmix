@@ -54,10 +54,12 @@ class SVMpymvpa(regionClassifier):
             return admixedClass
         if doAncestralCV:          #Cross Validated ancestral population
             hspl=pymvpa.NGroupPartitioner(3, attr='runtype')
-            cvte = pymvpa.CrossValidation(self.classifier, hspl)
+            # cvte = pymvpa.CrossValidation(self.classifier, hspl)
+            cvte = pymvpa.CrossValidation(self.classifier, hspl, enable_ca='stats')
             cv_results=cvte(ds)
-            ancestralSuccess=1-np.mean(cv_results)
-            return ancestralSuccess, admixedClass
+            return cvte.ca.stats.matrix, admixedClass 
+            # ancestralSuccess=1-np.mean(cv_results)
+            # return ancestralSuccess, admixedClass
         return admixedClass
 
 
@@ -111,10 +113,12 @@ class hmmFilter(globalFilter):
 
         a=np.asarray(a) 
         for s in successRate:
-            x=np.empty((self.nClasses, self.nClasses)) #Create output transitions
-            for i in range(self.nClasses):
-                x[i,:]=(1.-s)/(self.nClasses-1)
-                x[i,i]=s
+            # x=np.empty((self.nClasses, self.nClasses)) #Create output transitions
+            # for i in range(self.nClasses):
+            #     x[i,:]=(1.-s)/(self.nClasses-1)
+            #     x[i,i]=s
+            x=(s/s.sum(0).astype(np.float)).T #new1
+            ##x=(s.T/s.sum(1).astype(float)).T  #new2
             b.append(x)
         b=np.asarray(b)
         model=hmm(a, b)
