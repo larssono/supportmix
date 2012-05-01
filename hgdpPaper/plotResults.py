@@ -40,7 +40,7 @@ if __name__ == '__main__':
     qatarColors=qatarColors/255.
 
     ################################
-    # Figure 1: PCA and Maps
+    # Figure 4: PCA and Maps
     ################################
     pylab.figure(figsize=(7.08, 7.03))
     ######### PCA plot ################
@@ -97,8 +97,11 @@ if __name__ == '__main__':
         y+=5;
         if y==30:
             x=X.next(); y=0
-    pylab.scatter(x,y, s=20, c=[0,0,0], linewidth=0)
-    pylab.text(x+.5, y, 'Other (Europe/Americas/Oceania)', fontsize=6, verticalalignment='center')
+    pylab.text(x-.25, y, 'Other:   Europe   Americas   Oceania', fontsize=6, verticalalignment='center', horizontalalignment='left')
+    pylab.scatter(x+2.05,y, s=20, c=[40./255,40./255,40./255], linewidth=0)
+    pylab.scatter(x+4.90,y, s=20, c=[150./255,150./255,150./255], linewidth=0)
+    pylab.scatter(x+8.40,y, s=20, c=[220./255,220./255,220./255], linewidth=0)
+
     pylab.xlim(-.25, 48)
     pylab.ylim(27, -2)
     pylab.axis('off')
@@ -125,10 +128,11 @@ if __name__ == '__main__':
                     xytext=(pos, -5), textcoords='data',
                     arrowprops=dict(facecolor='black', shrink=0.1, width=1, headwidth=4),
                     horizontalalignment='center', verticalalignment='top')
-    pylab.savefig('fig1.'+FILETYPE,format=FILETYPE) 
+    pylab.savefig('fig4.'+FILETYPE,format=FILETYPE) 
+
 
     ################################
-    # Figure 2 - average ancestry
+    # Figure 5 - average ancestry
     ################################
     pylab.figure(figsize=(7.08,2.5))
     q1=qatarAncestry[:,0:206]
@@ -155,7 +159,7 @@ if __name__ == '__main__':
         pylab.text(0.03, 1.02, ['A', 'B', 'C'][i], transform = ax.transAxes, horizontalalignment='right', fontsize=12)
         pylab.title(['Arab-Qatari', 'Persian-Qatari', 'African-Qatari'][i], fontsize=10)
     pylab.subplots_adjust(left=.07, bottom=.28, right=.98, top=.89, hspace=.01)
-    pylab.savefig('fig2.'+FILETYPE,format=FILETYPE) 
+    pylab.savefig('fig5.'+FILETYPE,format=FILETYPE) 
     ################################
     # Summary Output
     ################################
@@ -196,7 +200,7 @@ if __name__ == '__main__':
                     fp.write(str+'\\\\ \n ')
 
     ################################
-    # Figure 3: Simulation results
+    # Figure 1: Simulation results
     ################################
     pylab.figure(figsize=(7.08,2.6))
     ######### HGDP SupportMix v Lamp ################
@@ -232,7 +236,7 @@ if __name__ == '__main__':
         pylab.semilogx(g.fst[:7], success[i*7:(i+1)*7,0], '-o', linewidth=.5, markersize=3)
     pylab.axis([0.041,23, 50, 100.5])
     pylab.xticks(g.fst[:7], ['%g' %l for l in g.fst[:7]], fontsize=6)
-    pylab.xlabel('g/g\'')
+    pylab.xlabel('g\'/g')
     #pylab.ylabel('Correctly classified loci [%]')
     pylab.yticks(range(50,101,10), [])
     pylab.text(0.07, 1.02, 'C', transform = ax.transAxes, horizontalalignment='right', fontsize=12)
@@ -251,7 +255,7 @@ if __name__ == '__main__':
     pylab.figlegend(lines, labels, "lower right", ncol=4, numpoints=1, borderaxespad=1)
     pylab.subplots_adjust(left=.078, bottom=.3, right=.98, top=.9, hspace=.19, wspace=.05)
     pylab.text(0.07, 1.02, 'D', transform = ax.transAxes, horizontalalignment='right', fontsize=12)
-    pylab.savefig('fig3.'+FILETYPE,format=FILETYPE) 
+    pylab.savefig('fig1.'+FILETYPE,format=FILETYPE) 
 
     ################################
     # Supplemental Figure 1 - Structure+all chroms
@@ -270,7 +274,7 @@ if __name__ == '__main__':
         pylab.axis('tight'); pylab.draw(); 
         pylab.xticks([]); pylab.yticks([])
         pylab.ylabel(CHR, rotation='horizontal')
-    pylab.text(-25, -150, 'SupportMix locus-specific ancestry assignments across chromosomes', rotation='vertical', fontsize=10)
+    pylab.text(-25, -630, 'SupportMix locus-specific ancestry assignments across chromosomes', rotation='vertical', fontsize=10)
 
     ####### STRUCTURE PLOT ############x##
     ax=pylab.axes([.1,.05, .8, .095])
@@ -283,15 +287,15 @@ if __name__ == '__main__':
     pylab.bar(np.arange(156), alphas[idx,2], width=1, bottom=alphas[idx,:2].sum(1), linewidth=0, color='r')
     pylab.axis([-0.2, 156.2, 0, 1]); 
     pylab.yticks(np.linspace(0,1,6)), pylab.xticks([])
-    pylab.text(-12.5, -.1, 'STRUCTURE ancestry', rotation='vertical', fontsize=8)
+    pylab.text(-12.5, 1.2, 'STRUCTURE ancestry', rotation='vertical', fontsize=8)
     pylab.xticks([-.2, 51.5, 103.01, 119.5, 139, 147.5,  156], ['|','Arab-Qatari','|', 'Persian-Qatari', '|', 'African-Qatari', '|'])
     pylab.xlabel('Individual genomes', fontsize=8)
 
-    pylab.savefig('supplemental_fig1.'+FILETYPE,format=FILETYPE) 
+    pylab.savefig('figS1.'+FILETYPE,format=FILETYPE) 
 
 
     ################################
-    # Supplemental figure 2
+    # figure 2
     ################################
     pylab.figure(figsize=(7.08,3.8))
     ######### HGDP SupportMix three ################
@@ -316,14 +320,14 @@ if __name__ == '__main__':
     pylab.xticks(alphas.fst[:5], alphas.fst[:5])
     pylab.legend(['-'.join([l.capitalize() for l in alphas.files[i]]) for i in [0,5,10,15,20,25,30]], 4, ncol=2, numpoints=1)
     pylab.ylim(50, 100); pylab.yticks(range(50,101, 10), [])
-    pylab.xlabel('Ancestry fraction')
+    pylab.xlabel(r'$\alpha$')
     pylab.xlim(0.08, .52)
     pylab.text(0.0, 1.02, 'B', transform = ax.transAxes, horizontalalignment='right', fontsize=12)
     pylab.subplots_adjust(left=.078, bottom=.1, right=.97, top=.92, wspace=.1)
-    pylab.savefig('supplemental_fig2.'+FILETYPE,format=FILETYPE) 
+    pylab.savefig('fig2.'+FILETYPE,format=FILETYPE) 
     
     ################################
-    # Supplemental Figure 3 - Simulated Qatari
+    # Figure 3 - Simulated Qatari
     ################################
     simQatarPops=np.load('data/simulatedQatar.populations.npy')
     colors=[POPCOLORS[label] for label in simQatarPops]
@@ -374,7 +378,7 @@ if __name__ == '__main__':
     pylab.axis('tight'); pylab.draw(); 
     pylab.xticks([]); pylab.yticks([])
     pylab.ylabel('Correct ancestry');pylab.xlabel('Position along chr1')
-    pylab.text(-2100, 2.5, 'Four haploid genomes', horizontalalignment='center', rotation='vertical')
+    pylab.text(-2300, -1, 'Four haploid genomes', horizontalalignment='center', rotation='vertical', verticalalignment='center')
     pylab.axes([.86, 0.1, .15, .8])
     x,y=0,0
     popLegend=['Adygei', 'French', 'Yoruba', 'Bantu N.E.','Mbuti Pygmies','Biaka Pygmies', 'Mandenka', 
@@ -386,6 +390,6 @@ if __name__ == '__main__':
         y+=1;
     pylab.axis([-0.5, 8, -.3, 15.3])
     pylab.axis('off')
-    pylab.savefig('supplemental_fig3.'+FILETYPE,format=FILETYPE) 
+    pylab.savefig('fig3.'+FILETYPE,format=FILETYPE) 
 
     pylab.show()

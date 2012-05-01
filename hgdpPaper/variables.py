@@ -35,21 +35,21 @@ OUTPUT_TWO_POP_SVM_DELTA_GENS='data/twoPopResultsDeltaGens.P'
 OUTPUT_TWO_POP_SVM_WIN='data/twoPopResultsWins.P'
 OUTPUT_PCA='data/pcaResults.npz'
 
-POPCOLORS={'Qatar1': [255,178,0,255], #Qatar 
+POPCOLORS={'Qatar1': [205,178,0,255], #Qatar 
 'Qatar2':            [255,142,0,255], 
 'Qatar3':            [255,106,0,255], 
-'Palestinian':       [64,0,255,255],  #Arab like populations
+'Palestinian':       [84,0,255,255],  #Arab like populations
 'Bedouin':           [32,41,255,255],
 'Druze':             [0,81,255,255],
-'Makrani':           [255,0,0,255],  #Persian type
-'Sindhi':            [255,0,12,255],
-'Balochi':           [255,0,24,255],
-'Brahui':            [255,0,36,255],
-'Hazara':            [255,0,48,255],
-'Pathan':            [255,0,60,255],
-'Kalash':            [255,0,72,255],
-'Burusho':           [255,0,84,255],  #N Eastern Asia
-'Xibo':              [255,0,90,255], 
+'Makrani':           [100,0,0,255],  #Persian type
+'Sindhi':            [115,0,12,255],
+'Balochi':           [130,0,24,255],
+'Brahui':            [145,0,36,255],
+'Hazara':            [160,0,48,255],
+'Pathan':            [175,0,60,255],
+'Kalash':            [190,0,72,255],
+'Burusho':           [210,0,84,255],  #N Eastern Asia
+'Xibo':              [230,0,90,255], 
 'Uygur':             [255,0,100,255], 
 'Mozabite':          [0,183,255,255], #North Africa
 'Mandenka':          [0,138,32,255], #SubSaharan Africa  
@@ -57,11 +57,11 @@ POPCOLORS={'Qatar1': [255,178,0,255], #Qatar
 'Biaka Pygmies':     [0,196,80,255],                     
 'Mbuti Pygmies':     [0,225,104,255],                     
 'Bantu N.E.':        [0,255,128,255],                      
-'Bantu S.W. Ovambo': [185,255,0,255], #S Africa
-'San':               [199,255,0,255], 
-'Bantu S.W. Herero': [213,255,0,255],
-'Bantu S.E. S.Sotho':[227,255,0,255], 
-'Bantu S.E. Tswana': [241,255,0,255],
+'Bantu S.W. Ovambo': [140,255,0,255], #S Africa
+'San':               [165,255,0,255], 
+'Bantu S.W. Herero': [190,255,0,255],
+'Bantu S.E. S.Sotho':[205,255,0,255], 
+'Bantu S.E. Tswana': [230,255,0,255],
 'Bantu S.E. Zulu':   [255,255,0,255], 
 'Yakut':             [255,0,136,255], #Asian
 'Oroqen':            [253,0,144,255],
@@ -79,9 +79,9 @@ POPCOLORS={'Qatar1': [255,178,0,255], #Qatar
 'Lahu':              [229,0,239,255],
 'Dai':               [227,0,247,255],
 'Cambodians':        [225,0,255,255],
-'Adygei':[0,0,0,255], 'Tuscan':[0,0,0,255], 'French':[0,0,0,255],  'French Basque':[0,0,0,255], 'Sardinian':[0,0,0,255], 'North Italian':[0,0,0,255], 'Orcadian':[0,0,0,255], 'Russian':[0,0,0,255],  #European
-'Pima':[0,0,0,255],  'Maya':[0,0,0,255], 'Colombians':[0,0,0,255], 'Karitiana':[0,0,0,255], 'Surui':[0,0,0,255],  #Native American
-'Papuan':[0,0,0,255], 'NAN Melanesian':[0,0,0,255]} #Oceania
+'Adygei':[40,40,40,255], 'Tuscan':[40,40,40,255], 'French':[40,40,40,255],  'French Basque':[40,40,40,255], 'Sardinian':[40,40,40,255], 'North Italian':[40,40,40,255], 'Orcadian':[40,40,40,255], 'Russian':[40,40,40,255],  #European
+'Pima':[150,150,150,255],  'Maya':[150,150,150,255], 'Colombians':[150,150,150,255], 'Karitiana':[150,150,150,255], 'Surui':[150,150,150,255],  #Native American
+'Papuan':[220,220,220,255], 'NAN Melanesian':[220,220,220,255]}
 
 for key,val in POPCOLORS.items():  #Fix colors to match fileNames
     POPCOLORS[key.lower().replace(' ', '_')]=val

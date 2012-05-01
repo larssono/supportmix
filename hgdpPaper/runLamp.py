@@ -1,1 +1,1 @@
-/home/lom/bin/runLamp.py
+/Users/lom/bin/runLamp.py

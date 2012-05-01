@@ -76,3 +76,29 @@ time python examineHGDP.py
 #######################################################################
 time python plotResults.py
 
+#######################################################################
+#Do comparison to STRUCTURE for reviewer
+#######################################################################
+mkdir data/structure_comparison; cd data/structure_comparison
+../../review_structure.sh
+
+
+runLamp.py -c 1 -g 5 --alphas=0.5,0.5 --cleanup -a admixed_ceu_yri_chr1_short_origin.tped -f tped ceu_chr1_short.tped yri_chr1_short.tped admixed_ceu_yri_chr1_short.tped 
+../../../SupportMix -c 1 -w 100 -g 5  -a admixed_ceu_yri_chr1_short_origin.tped ceu_chr1_short.tped yri_chr1_short.tped admixed_ceu_yri_chr1_short.tped 
+
+#runLamp.py -c 1 -g 5 --alphas=0.5,0.5 --cleanup -a admixed_ceu_yri_chr1_origin.tped -f tped ceu_chr1.tped yri_chr1.tped admixed_ceu_yri_chr1.tped 
+#../../../SupportMix -c 1 -w 30 -g 5  -a admixed_ceu_yri_chr1_origin.tped ceu_chr1.tped yri_chr1.tped admixed_ceu_yri_chr1.tped 
+cd ../../
+rm -r data/structure_comparisson
+
+#             ceu-yri-5gens
+#             5440     10880    43518
+# Structure:  86.9%             
+# Lamp:       91.9%    92.9%    93.5%
+# SupportMix: 94.5%    97.3%    99.0%
+
+
+#######################################################################
+# Do comparisson between HapMap and Fixed recombination rate
+#######################################################################
+python review_genetic_map.py

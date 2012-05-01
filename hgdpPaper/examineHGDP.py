@@ -22,7 +22,7 @@ def readFst():
     fp.close()
     return fst
     
-def classify(fileNames, smoother, classifier=regionClassifier.SVMpymvpa(C), win_size=100, CHR='chr1'):
+def classify(fileNames, smoother, classifier=regionClassifier.SVMpymvpa(C), win_size=100, CHR='chr1', mapFile='data/hapmap2/genetic_map_%(CHR)s_b36.txt'):
     """Deconvolves ancestry in last file based on ancestral
     populations in first files.
     Arguments:
@@ -64,7 +64,7 @@ def classify(fileNames, smoother, classifier=regionClassifier.SVMpymvpa(C), win_
     admixedClassPre=np.array(admixedClass)
 
     #Figure out mapLocations
-    gm=popgen.geneticMap('data/hapmap2/genetic_map_%(CHR)s_b36.txt'%locals())
+    gm=popgen.geneticMap(mapFile%locals())
     mapLocations=gm.pos2gm(np.hstack(snpLocations))
     admixedClass, p=smoother(mapLocations, ancestralSuccess, admixedClassPre)
     return  admixedClassPre, admixedClass, p, subjects[-1], snpLocations, snpNames
@@ -242,3 +242,4 @@ if __name__ == '__main__':
     np.save('data/simulatedQatar.populations', pops)
     fpClass.close()
     fpP.close()
+
