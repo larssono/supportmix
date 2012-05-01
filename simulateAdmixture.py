@@ -80,7 +80,7 @@ def saveTped(filename, subjectNames, snpNames, snpPos, mapPos, snpVals, chrom):
     """Saves file in tped and tfam format"""
     nSubs=len(subjectNames)
     with open(filename+'.tfam', 'w') as tFamFp:
-        pedPadding="0 %s 0 0 0 0 0"
+        pedPadding="%s 0 0 0 0 0"
         for subject in subjectNames[::2]:
             tFamFp.write("%s\n"%pedPadding%subject.replace('_a', ''))
     with open(filename+'.tped', 'w') as fp:
@@ -187,6 +187,6 @@ if __name__ == '__main__':
     #Save populations
     for i in range(len(nPops)):
         saveTped(options.saveFiles[i], ancestralSubjects[i], snpNames, snpPos, gmPos, ancestralPops[i], options.chrom)
-    saveTped(options.saveFiles[-1], ['ind']*options.nOffspring, snpNames, snpPos, gmPos, admixedPop, options.chrom)
+    saveTped(options.saveFiles[-1], ['ind'+`i` for i in range(options.nOffspring)], snpNames, snpPos, gmPos, admixedPop, options.chrom)
     saveTped(options.saveFiles[-1]+'_origin', ['ind']*options.nOffspring, snpNames, snpPos, gmPos, admixedOrigin, options.chrom)
 
