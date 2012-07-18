@@ -1,5 +1,7 @@
 import sys
 import os
+import re
+
 import ConfigParser
 from optparse import OptionParser, OptionGroup
 import numpy as np
@@ -27,6 +29,11 @@ USAGE="""SupportMix [options] ancestralFile1 ancestralFile2 [...] admixedFile
 where the ancestralFiles and admixedFiles are phased tped files.
 """
 
+SM_VERSION="\nVersion: July 18, 2012"
+USAGE+=SM_VERSION
+
+#regular expression to search sample labels
+getNumberRex=re.compile("\d+")
 
 def fail(str):
     # sys.stderr.write('Usage: ')
@@ -148,7 +155,8 @@ def getConfigOptions(configFile):
         ancestryFile=config.get('parameters','ancestryFile')
     else:
         ancestryFile=None
-        raise ConfigParser.Error("Undefined Ancestry file")
+# Should we raise an error if the ancestry file is not defined?
+#        raise ConfigParser.Error("Undefined Ancestry file")
     
     if ancestryFile:
         if os.path.exists(ancestryFile):
@@ -162,21 +170,30 @@ def getConfigOptions(configFile):
                 raise ConfigParser.Error("Can't find Ancestry File")    
     fileNames=[]
     admixed=None
-    for itemLabel,fileItem in config.items('input'):
+    sampleItems=config.items('input')
+    #NEW PATCH JUL 17 2012 FOR LABEL PROBLEM
+    fileNames=[""]*(len(sampleItems)-1)
+
+    for itemLabel,fileItem in sampleItems:
         #fileItem=inputItem
+        if DEBUG: print "CONFIG_ITEMS INPUT SECTION:", itemLabel,fileItem
         if baseDataDir!=None:
             fileItem=os.path.join(baseDataDir,fileItem)
         #Validate file existence
         if not os.path.exists(fileItem):
             raise ConfigParser.Error("Can't find file: %s"%fileItem)
         if itemLabel!='admixed':
-            fileNames.append(fileItem)
+            if DEBUG:print "SAMPLE LABEL=",getNumberRex.search(itemLabel).group()
+            #fileNames.append(fileItem)
+            #NEW PATCH JUL 17 2012 FOR LABEL PROBLEM
+            fileNames[int(getNumberRex.search(itemLabel).group())-1]=fileItem
         else:
             admixed=fileItem
     if admixed:
         fileNames.append(admixed)
     else:
         raise ConfigParser.Error("Admixed population not defined")
+    if DEBUG: print "THESE ARE THE FILES in fileNames[]:", fileNames
     configData['fileNames']=fileNames
     if config.has_section('plot options'):
         #configData['doPlot']=config.getboolean('plot options', 'plot')
@@ -350,7 +367,7 @@ def getParameters(rawConfiguration):
     params=rawConfiguration.copy()
     
     if len(params['fileNames'])<3:
-        fail('Not enough ancestral populations were given')
+        fail('Not enough ancestral populations were specified or path to the files was incorrect.')
     if params['chrom']==None:
         if params['isBeagle']: #Use filenames to guess the chromsome used or do all of them
             params['chrom']=[determineChromosome(params['fileNames']).replace('chr','')]

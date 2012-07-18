@@ -4,7 +4,12 @@ import sys
 import gzip
 import glob
 import os
-import pylab, matplotlib
+import matplotlib
+#--- removes Xwindows backend dependency  (Has to be tested with freeze)
+matplotlib.use('Agg')
+
+#import pylab, matplotlib
+import pylab
 import numpy as np
 
 import popgen
@@ -24,7 +29,6 @@ import scipy.signal
 #---  matplotlib cxFreeze dependency fixes
 import matplotlib.backends.backend_tkagg
 ####################################
-
 
 def winSizeBPandCM(results, winSize):
     """Calculates the average window size in bp and cM"""
@@ -121,6 +125,11 @@ def runSVM(params, chrom,  svmC=100):
     #Extract genetic map if supplied as file
     if params['mapDir']!=None:  #Use mapFiles to determine genetic map
         mapFile=supportConfig.createDataPath(params['mapDir'])
+        
+        print "Genetic Map Directory:",mapFile
+        if not os.path.isdir(mapFile):
+            supportConfig.fail('Can not find genetic map directory: [%s]\n Please provide the full path to the genetic map directory.'%mapFile)
+
         mapFile=glob.glob('%s/*_chr%s_*' %(mapFile, chrom))
         if len(mapFile)!=1:
             supportConfig.fail('genetic map folder contains too few or to many files with pattern: *_chr%s_*, %i found.' %(chrom, len(mapFile)))
@@ -253,7 +262,7 @@ def summarizeResults(params, results):
         sys.stdout.write('Population %s has: %2.2g%% loci assigned\n' %(pop, 100*nPop/nTot))
 
 
-def plotResults(params, results):
+def plotResults(params, results, imageFile=None):
     """Generates graphics output
 
     Arguments:
@@ -310,11 +319,15 @@ def plotResults(params, results):
             y+=1;
         pylab.axis([-0.5, 8, -.3, len(params['labels'])-.5])
     pylab.axis('off')
-    pylab.show()
+    if imageFile:
+        pylab.savefig(imageFile)
+    else:
+        pylab.show()
 
 
 
 if __name__ == '__main__':
+    if DEBUG: supportConfig.DEBUG=True
     rawConfiguration={}
     params=supportConfig.getParameters(rawConfiguration)
     if DEBUG:
@@ -332,7 +345,7 @@ if __name__ == '__main__':
             mean, std=accuracySummary(params, results)
     except:
         supportConfig.fail('Error in determining accuracy.  Please verify format of %s' %params['correctFile'])
-    if params['doPlot']: plotResults(params, results)
+    if params['doPlot']: plotResults(params, results, params['saveFile']+'.png')
     supportConfig.writeConfigFile(rawConfiguration,params['saveFile']+'.cfg')
 
 
