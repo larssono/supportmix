@@ -24,8 +24,8 @@ class SVMpymvpa(regionClassifier):
         Arguments:
         - `C`: Penalty term for missclassified samples in SVM
         """
-        #self.classifier = pymvpa2.kNN(k=1, dfx=pymvpa.one_minus_correlation, voting='majority')
-        self.classifier = pymvpa2.LinearCSVMC(C=C)
+        #self.classifier = pymvpa.kNN(k=1, dfx=pymvpa.one_minus_correlation, voting='majority')
+        self.classifier = pymvpa.LinearCSVMC(C=C)
 
 
     def __call__(self, valsTrain, labelsTrain, valsTest, doAncestralCV=True):
@@ -39,23 +39,23 @@ class SVMpymvpa(regionClassifier):
         - `valsTest`:  numpy array of (nSamples2xnFeatures) of test samples
         """
         #Create and normalize data
-        ds=pymvpa2.Dataset(valsTrain)
+        ds=pymvpa.Dataset(valsTrain)
         ds.sa['targets']=labelsTrain
         runtype=np.zeros(valsTrain.shape[0]); runtype[0::3]=0;runtype[1::3]=1; runtype[2::3]=2 
         ds.sa['runtype']=runtype
         try:     #Train on ancestral
             self.classifier.train(ds)
             admixedClass=self.classifier.predict(valsTest)
-        except pymvpa2.DegenerateInputError:  #The valsTrain is to small to contain information
+        except pymvpa.DegenerateInputError:  #The valsTrain is to small to contain information
             print "WARNING: Window is degenerate; guessing ancestry"
             admixedClass=np.zeros(valsTest.shape[0])  #Just assign ancestry to first pop
             if doAncestralCV:
                 return 1./len(np.unique(labelsTrain)), admixedClass  #Assign success to create equal 
             return admixedClass
         if doAncestralCV:          #Cross Validated ancestral population
-            hspl=pymvpa2.NGroupPartitioner(3, attr='runtype')
-            # cvte = pymvpa2.CrossValidation(self.classifier, hspl)
-            cvte = pymvpa2.CrossValidation(self.classifier, hspl, enable_ca='stats')
+            hspl=pymvpa.NGroupPartitioner(3, attr='runtype')
+            # cvte = pymvpa.CrossValidation(self.classifier, hspl)
+            cvte = pymvpa.CrossValidation(self.classifier, hspl, enable_ca='stats')
             cv_results=cvte(ds)
             return cvte.ca.stats.matrix, admixedClass 
             # ancestralSuccess=1-np.mean(cv_results)
