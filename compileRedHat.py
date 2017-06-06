@@ -9,7 +9,7 @@ import cx_Freeze
 import sys
 import matplotlib
 
-#from mvpa.suite import *
+#from mvpa2.suite import *
 
 pythonLib="/usr/local/python26/lib/python2.6/site-packages/"
 

@@ -3,7 +3,7 @@ genotype and haplotype classifiers.  Primarily based on support vector
 machines (SVM)."""
 import numpy as np
 from  hmm import hmm
-import mvpa.suite as pymvpa
+import mvpa2.suite as pymvpa
 
 
 class regionClassifier:

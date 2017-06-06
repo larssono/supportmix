@@ -21,7 +21,7 @@ import supportConfig
 #---  SCIPY cxFreeze dependency fixes
 import scipy.misc
 import scipy
-scipy.factorial = scipy.misc.common.factorial
+scipy.factorial = scipy.misc.factorial
 
 from scipy import factorial
 import scipy.signal
